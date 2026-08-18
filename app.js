@@ -153,6 +153,37 @@ function saveState() {
  * ------------------------------------------------------------ */
 const $ = (sel) => document.querySelector(sel);
 
+/** confirm() propio basado en <dialog> (los nativos no funcionan en visores embebidos). */
+function askConfirm(message, { okOnly = false } = {}) {
+  return new Promise((resolve) => {
+    const dlg = $('#dlg-confirm');
+    $('#dlg-confirm-msg').textContent = message;
+    const cancel = $('#dlg-confirm-cancel');
+    cancel.hidden = okOnly;
+    $('#dlg-confirm').querySelector('button[value="ok"]').textContent = okOnly ? 'Aceptar' : 'Sí';
+    dlg.returnValue = 'cancel';
+    dlg.onclose = () => resolve(dlg.returnValue === 'ok');
+    cancel.onclick = () => dlg.close('cancel');
+    dlg.showModal();
+  });
+}
+
+/** prompt() propio: devuelve el texto o null si se cancela. */
+function askText(message, value = '') {
+  return new Promise((resolve) => {
+    const dlg = $('#dlg-text');
+    $('#dlg-text-label').textContent = message;
+    const input = $('#dlg-text-input');
+    input.value = value;
+    dlg.returnValue = 'cancel';
+    dlg.onclose = () => resolve(dlg.returnValue === 'ok' ? input.value : null);
+    $('#dlg-text-cancel').onclick = () => dlg.close('cancel');
+    dlg.showModal();
+    input.focus();
+    input.select();
+  });
+}
+
 function hexToRgba(hex, alpha) {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
   if (!m) return `rgba(240, 235, 238, ${alpha})`;
@@ -462,18 +493,18 @@ function renderRoomList() {
     const rename = document.createElement('button');
     rename.textContent = '✎';
     rename.title = 'Renombrar';
-    rename.addEventListener('click', (e) => {
+    rename.addEventListener('click', async (e) => {
       e.stopPropagation();
-      const n = prompt('Nombre de la habitación:', room.name);
+      const n = await askText('Nombre de la habitación:', room.name);
       if (n && n.trim()) { room.name = n.trim(); saveState(); renderRoomList(); renderBoard(); }
     });
 
     const del = document.createElement('button');
     del.textContent = '🗑';
     del.title = 'Eliminar habitación (sus casillas quedan vacías)';
-    del.addEventListener('click', (e) => {
+    del.addEventListener('click', async (e) => {
       e.stopPropagation();
-      if (!confirm(`¿Eliminar «${room.name}»?`)) return;
+      if (!(await askConfirm(`¿Eliminar «${room.name}»?`))) return;
       state.rooms = state.rooms.filter((r) => r.id !== room.id);
       for (const [k, v] of Object.entries(state.cellRoom)) if (v === room.id) delete state.cellRoom[k];
       saveState(); renderRoomList(); renderBoard();
@@ -637,15 +668,15 @@ function setupControls() {
     renderPanels();
   });
 
-  $('#btn-clear-plays').addEventListener('click', () => {
-    if (!confirm('¿Quitar todos los personajes y tachaduras manuales?')) return;
+  $('#btn-clear-plays').addEventListener('click', async () => {
+    if (!(await askConfirm('¿Quitar todos los personajes y tachaduras manuales?'))) return;
     state.placements = {};
     state.manualX = [];
     saveState(); renderPanels();
   });
 
-  $('#btn-add-char').addEventListener('click', () => {
-    const name = prompt('Nombre del personaje:');
+  $('#btn-add-char').addEventListener('click', async () => {
+    const name = await askText('Nombre del personaje:');
     if (!name || !name.trim()) return;
     state.characters.push({
       id: 'ch' + Date.now(),
@@ -656,8 +687,8 @@ function setupControls() {
     saveState(); renderAll();
   });
 
-  $('#btn-add-room').addEventListener('click', () => {
-    const name = prompt('Nombre de la habitación:');
+  $('#btn-add-room').addEventListener('click', async () => {
+    const name = await askText('Nombre de la habitación:');
     if (!name || !name.trim()) return;
     const room = {
       id: 'room' + Date.now(),
@@ -716,8 +747,8 @@ function setupControls() {
     saveState(); renderBoard();
   });
 
-  $('#btn-clear-map').addEventListener('click', () => {
-    if (!confirm('¿Vaciar todo el mapa (habitaciones, muebles, ventanas y colocaciones)?')) return;
+  $('#btn-clear-map').addEventListener('click', async () => {
+    if (!(await askConfirm('¿Vaciar todo el mapa (habitaciones, muebles, ventanas y colocaciones)?'))) return;
     state.cellRoom = {};
     state.furniture = {};
     state.windows = {};
@@ -726,8 +757,8 @@ function setupControls() {
     saveState(); renderAll();
   });
 
-  $('#btn-reset-all').addEventListener('click', () => {
-    if (!confirm('¿Descartar todo y volver al puzle de ejemplo del libro?')) return;
+  $('#btn-reset-all').addEventListener('click', async () => {
+    if (!(await askConfirm('¿Descartar todo y volver al puzle de ejemplo del libro?'))) return;
     state = defaultState();
     selectedCharId = null;
     xToolActive = false;
@@ -758,7 +789,7 @@ function setupControls() {
         xToolActive = false;
         saveState(); renderAll();
       } catch (e) {
-        alert('El archivo no parece un puzle de Murdoku válido.');
+        askConfirm('El archivo no parece un puzle de Murdoku válido.', { okOnly: true });
       }
       ev.target.value = '';
     };
