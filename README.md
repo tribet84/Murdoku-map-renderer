@@ -10,7 +10,9 @@ Un asistente en 4 pasos:
 1. **Tamaño** — elige filas y columnas por separado (el mapa no tiene por qué ser
    cuadrado). Los personajes se crean solos: una letra (A, B, C…) por cada lado más
    corto del mapa, y la víctima siempre es la **V**.
-2. **Habitaciones** — añade habitaciones y píntalas arrastrando por el mapa.
+2. **Habitaciones** — añade habitaciones y píntalas arrastrando por el mapa. El botón
+   **«Última (rellena huecos)»** crea la habitación final y la asigna de golpe a todas
+   las casillas que aún no tengan una, para no tener que pintarla a mano.
 3. **Muebles** — coloca **obstáculos** (tachan su casilla: ahí no puede haber nadie),
    **sillas**, **camas** y **alfombras** (en estas sí se puede estar, como dicen las
    pistas del libro).
@@ -21,6 +23,10 @@ Un asistente en 4 pasos:
    sin que cuenten como confirmadas ni disparen el tachado automático; al confirmar una
    letra en una casilla, sus «quizás» se limpian solos. También puedes tachar casillas
    a mano para tus deducciones, y apuntar la respuesta en *«El asesino es…»*.
+
+El botón **↩️ Deshacer** de la cabecera funciona en cualquier paso y revierte el último
+cambio: colocar o quitar una letra, un trazo entero de pintar habitación o mueble, tachar
+una casilla, añadir/renombrar/borrar una habitación, cambiar filas o columnas, etc.
 
 Todo se guarda solo en el navegador (`localStorage`). Viene precargado el mapa de ejemplo
 del libro (Baño, Cocina, Cuarto de invitados, Comedor, Dormitorio y Salón).

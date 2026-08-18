@@ -10,7 +10,10 @@
 <body>
   <header>
     <h1>🔎 Murdoku</h1>
-    <button id="btn-new">✨ Nuevo mapa</button>
+    <div class="header-actions">
+      <button id="btn-undo" disabled>↩️ Deshacer</button>
+      <button id="btn-new">✨ Nuevo mapa</button>
+    </div>
   </header>
 
   <main>
@@ -48,7 +51,10 @@
       <section id="step-2" class="step-panel" hidden>
         <p class="hint">Elige una habitación y <strong>arrastra</strong> por el mapa para pintarla.</p>
         <div id="room-list"></div>
-        <button id="btn-add-room">＋ Añadir habitación</button>
+        <div class="tool-row">
+          <button id="btn-add-room">＋ Añadir habitación</button>
+          <button id="btn-fill-room">🧩 Última (rellena huecos)</button>
+        </div>
       </section>
 
       <!-- Paso 3: muebles -->

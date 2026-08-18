@@ -38,6 +38,8 @@ header h1 {
   letter-spacing: 1px;
 }
 
+.header-actions { display: flex; gap: 8px; }
+
 button {
   font: inherit;
   cursor: pointer;

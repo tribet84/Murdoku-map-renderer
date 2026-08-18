@@ -127,6 +127,39 @@ let selectedRoomId = state.rooms[0] ? state.rooms[0].id : null;
 let furnTool = 'obstaculo';
 let painting = false;
 
+/* ------------------------------------------------------------
+ * Deshacer: pila de instantáneas tomadas justo antes de cada cambio real.
+ * ------------------------------------------------------------ */
+const UNDO_LIMIT = 50;
+const undoStack = [];
+let strokeUndoPushed = false; // evita apilar una vez por casilla al pintar arrastrando
+
+function updateUndoButton() {
+  const btn = $('#btn-undo');
+  if (btn) btn.disabled = undoStack.length === 0;
+}
+
+function pushUndo() {
+  undoStack.push(JSON.stringify(state));
+  if (undoStack.length > UNDO_LIMIT) undoStack.shift();
+  updateUndoButton();
+}
+
+/** Como pushUndo(), pero como mucho una vez por trazo de arrastre (pointerdown→pointerup). */
+function pushUndoOnce() {
+  if (strokeUndoPushed) return;
+  pushUndo();
+  strokeUndoPushed = true;
+}
+
+function undo() {
+  if (!undoStack.length) return;
+  state = JSON.parse(undoStack.pop());
+  saveState();
+  renderAll();
+  updateUndoButton();
+}
+
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -416,8 +449,12 @@ function renderRoomList() {
     const color = document.createElement('input');
     color.type = 'color';
     color.value = room.color;
-    color.addEventListener('click', (e) => e.stopPropagation());
-    color.addEventListener('input', () => { room.color = color.value; saveState(); renderBoard(); });
+    let colorStrokeStarted = false;
+    color.addEventListener('click', (e) => { e.stopPropagation(); colorStrokeStarted = false; });
+    color.addEventListener('input', () => {
+      if (!colorStrokeStarted) { pushUndo(); colorStrokeStarted = true; }
+      room.color = color.value; saveState(); renderBoard();
+    });
 
     const name = document.createElement('span');
     name.className = 'room-name';
@@ -429,7 +466,7 @@ function renderRoomList() {
     rename.addEventListener('click', async (e) => {
       e.stopPropagation();
       const n = await askText('Nombre de la habitación:', room.name);
-      if (n && n.trim()) { room.name = n.trim(); saveState(); renderRoomList(); renderBoard(); }
+      if (n && n.trim()) { pushUndo(); room.name = n.trim(); saveState(); renderRoomList(); renderBoard(); }
     });
 
     const del = document.createElement('button');
@@ -438,6 +475,7 @@ function renderRoomList() {
     del.addEventListener('click', async (e) => {
       e.stopPropagation();
       if (!(await askConfirm(`¿Eliminar «${room.name}»?`))) return;
+      pushUndo();
       state.rooms = state.rooms.filter((r) => r.id !== room.id);
       for (const [k, v] of Object.entries(state.cellRoom)) if (v === room.id) delete state.cellRoom[k];
       saveState(); renderRoomList(); renderBoard();
@@ -534,6 +572,7 @@ function handlePlayClick(r, c, cell) {
   const k = key(r, c);
   if (xToolActive) {
     if (state.placements[k]) { flashCell(cell); return; }
+    pushUndoOnce();
     const idx = state.manualX.indexOf(k);
     if (idx >= 0) state.manualX.splice(idx, 1);
     else state.manualX.push(k);
@@ -544,15 +583,18 @@ function handlePlayClick(r, c, cell) {
     if (!selectedChar) { flashCell(cell); return; }
     if (state.placements[k]) { flashCell(cell); return; }
     if (isObstacle(r, c)) { flashCell(cell); return; }
+    pushUndoOnce();
     toggleCandidate(selectedChar, k);
     saveState(); renderCharChips(); renderPlayStatus(); renderBoard();
     return;
   }
   if (selectedChar) {
     if (state.placements[k] === selectedChar) {
+      pushUndoOnce();
       delete state.placements[k];
     } else {
       if (isObstacle(r, c)) { flashCell(cell); return; }
+      pushUndoOnce();
       const prev = placementCellOf(selectedChar);
       if (prev) delete state.placements[prev];
       state.placements[k] = selectedChar;
@@ -562,6 +604,7 @@ function handlePlayClick(r, c, cell) {
     return;
   }
   if (state.placements[k]) {
+    pushUndoOnce();
     delete state.placements[k];
     saveState(); renderCharChips(); renderPlayStatus(); renderBoard();
   }
@@ -571,13 +614,16 @@ function applyEditAt(r, c) {
   const k = key(r, c);
   if (state.step === 2) {
     if (!selectedRoomId || state.cellRoom[k] === selectedRoomId) return;
+    pushUndoOnce();
     state.cellRoom[k] = selectedRoomId;
   } else if (state.step === 3) {
     if (furnTool === 'borrar') {
       if (!state.furniture[k]) return;
+      pushUndoOnce();
       delete state.furniture[k];
     } else {
       if (state.furniture[k] === furnTool) return;
+      pushUndoOnce();
       state.furniture[k] = furnTool;
     }
   } else {
@@ -593,6 +639,7 @@ function setupBoardEvents() {
   board.addEventListener('pointerdown', (ev) => {
     const cell = ev.target.closest('.cell');
     if (!cell) return;
+    strokeUndoPushed = false;
     const r = +cell.dataset.r, c = +cell.dataset.c;
     if (state.step === 4) {
       handlePlayClick(r, c, cell);
@@ -642,6 +689,7 @@ function pruneOutOfBounds() {
 function setRows(rows) {
   const r = Math.max(MIN_SIZE, Math.min(MAX_SIZE, rows));
   if (r === state.rows) return;
+  pushUndo();
   state.rows = r;
   pruneOutOfBounds();
   saveState();
@@ -651,6 +699,7 @@ function setRows(rows) {
 function setCols(cols) {
   const c = Math.max(MIN_SIZE, Math.min(MAX_SIZE, cols));
   if (c === state.cols) return;
+  pushUndo();
   state.cols = c;
   pruneOutOfBounds();
   saveState();
@@ -672,6 +721,7 @@ function setupControls() {
   $('#btn-add-room').addEventListener('click', async () => {
     const name = await askText('Nombre de la habitación:');
     if (!name || !name.trim()) return;
+    pushUndo();
     const room = {
       id: 'room' + Date.now(),
       name: name.trim(),
@@ -681,6 +731,34 @@ function setupControls() {
     selectedRoomId = room.id;
     saveState();
     renderRoomList();
+  });
+
+  $('#btn-fill-room').addEventListener('click', async () => {
+    const empty = [];
+    for (let r = 0; r < state.rows; r++) {
+      for (let c = 0; c < state.cols; c++) {
+        const k = key(r, c);
+        if (!state.cellRoom[k]) empty.push(k);
+      }
+    }
+    if (!empty.length) {
+      await askConfirm('No quedan casillas sin habitación para rellenar.');
+      return;
+    }
+    const name = await askText('Nombre de la última habitación (rellenará los huecos):');
+    if (!name || !name.trim()) return;
+    pushUndo();
+    const room = {
+      id: 'room' + Date.now(),
+      name: name.trim(),
+      color: ROOM_PALETTE[state.rooms.length % ROOM_PALETTE.length],
+    };
+    state.rooms.push(room);
+    for (const k of empty) state.cellRoom[k] = room.id;
+    selectedRoomId = room.id;
+    saveState();
+    renderRoomList();
+    renderBoard();
   });
 
   $$('#furn-tools .tool-chip').forEach((btn) => {
@@ -704,6 +782,7 @@ function setupControls() {
 
   $('#btn-clear-plays').addEventListener('click', async () => {
     if (!(await askConfirm('¿Quitar todos los personajes y tachaduras manuales?'))) return;
+    pushUndo();
     state.placements = {};
     state.manualX = [];
     saveState();
@@ -712,6 +791,7 @@ function setupControls() {
 
   $('#btn-clear-candidates').addEventListener('click', async () => {
     if (!(await askConfirm('¿Quitar todas las casillas marcadas como «quizá»?'))) return;
+    pushUndo();
     state.candidates = {};
     saveState();
     renderCharChips(); renderPlayStatus(); renderBoard();
@@ -719,6 +799,7 @@ function setupControls() {
 
   $('#btn-new').addEventListener('click', async () => {
     if (!(await askConfirm('¿Empezar un mapa nuevo desde cero? Se borrará el actual.'))) return;
+    pushUndo();
     state = blankState();
     selectedChar = null;
     xToolActive = false;
@@ -728,6 +809,8 @@ function setupControls() {
     saveState();
     renderAll();
   });
+
+  $('#btn-undo').addEventListener('click', undo);
 
   $('#answer-input').addEventListener('input', (ev) => {
     state.answer = ev.target.value;
@@ -741,3 +824,4 @@ function setupControls() {
 setupControls();
 setupBoardEvents();
 renderAll();
+updateUndoButton();
