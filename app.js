@@ -2,32 +2,41 @@
 
 /* ============================================================
  * Murdoku · mapa digital
- * Aplicación 100% estática (GitHub Pages).
+ * Asistente en 4 pasos: tamaño → habitaciones → muebles → resolver.
  * ============================================================ */
 
-const STORAGE_KEY = 'murdoku-state-v1';
-
-const FURNITURE_TYPES = [
-  { id: 'cama',       name: 'Cama (se puede estar encima)',  icon: '🛏️', blocks: false },
-  { id: 'silla',      name: 'Silla (se puede sentar)',       icon: '🪑', blocks: false },
-  { id: 'mesa',       name: 'Mesa / encimera',               icon: '🟫', blocks: true },
-  { id: 'planta',     name: 'Planta',                        icon: '🪴', blocks: true },
-  { id: 'estanteria', name: 'Estantería',                    icon: '📚', blocks: true },
-  { id: 'comoda',     name: 'Cómoda / mesita',               icon: '🗄️', blocks: true },
-  { id: 'aparato',    name: 'Aparato (TV, radio…)',          icon: '📺', blocks: true },
-  { id: 'tocadiscos', name: 'Tocadiscos / música',           icon: '🎵', blocks: true },
-  { id: 'otro',       name: 'Otro mueble',                   icon: '📦', blocks: true },
-];
+const STORAGE_KEY = 'murdoku-state-v2';
+const MIN_SIZE = 4;
+const MAX_SIZE = 12;
 
 const ROOM_PALETTE = ['#8ec9e8', '#c5aee8', '#f5a8c0', '#ffcc80', '#a5d6a7', '#fff59d', '#ffab91', '#b0bec5', '#e6ee9c'];
-const CHAR_PALETTE = ['#a1887f', '#f9a825', '#ad1457', '#78909c', '#7e57c2', '#ec407a', '#5d4037', '#00897b', '#37474f'];
+const CHAR_PALETTE = ['#a1887f', '#f9a825', '#ad1457', '#78909c', '#7e57c2', '#ec407a', '#5d4037', '#00897b', '#8e24aa', '#039be5', '#7cb342'];
+const VICTIM_COLOR = '#37474f';
+
+const FURNITURE = {
+  silla: { icon: '🪑' },
+  cama: { icon: '🛏️' },
+  obstaculo: { icon: '' },
+};
 
 const key = (r, c) => `${r},${c}`;
 
+/** Letras de los personajes para un tamaño dado: A, B, C… y la víctima siempre V. */
+function charactersFor(size) {
+  const letters = [];
+  for (let i = 0; i < size - 1; i++) letters.push(String.fromCharCode(65 + i));
+  letters.push('V');
+  return letters;
+}
+
+function charColor(letter, index) {
+  return letter === 'V' ? VICTIM_COLOR : CHAR_PALETTE[index % CHAR_PALETTE.length];
+}
+
 /* ------------------------------------------------------------
- * Puzle de ejemplo: el mapa de la foto del libro.
+ * Puzle de ejemplo: el mapa de la foto del libro (9×9).
  * ------------------------------------------------------------ */
-function defaultState() {
+function exampleState() {
   const rooms = [
     { id: 'bano',       name: 'Baño',                color: '#8ec9e8' },
     { id: 'cocina',     name: 'Cocina',              color: '#c5aee8' },
@@ -52,67 +61,45 @@ function defaultState() {
   const furniture = {};
   const put = (type, ...cells) => cells.forEach(([r, c]) => { furniture[key(r, c)] = type; });
   // Baño
-  put('comoda', [0, 1]);
-  put('mesa', [2, 0]);
+  put('obstaculo', [0, 1], [2, 0]);
   put('silla', [3, 0]);
   // Cocina
-  put('mesa', [0, 2], [1, 4], [2, 4], [3, 4], [3, 3]);
-  put('planta', [1, 2]);
+  put('obstaculo', [0, 2], [1, 2], [1, 4], [2, 4], [3, 4], [3, 3]);
   // Cuarto de invitados
-  put('comoda', [0, 5], [2, 7]);
+  put('obstaculo', [0, 5], [2, 5], [2, 7]);
   put('cama', [0, 6], [1, 6], [0, 7], [1, 7]);
-  put('aparato', [2, 5]);
   // Comedor
   put('silla', [3, 5], [4, 4], [5, 5], [5, 8]);
-  put('planta', [3, 8]);
-  put('mesa', [4, 5], [4, 6], [4, 7], [4, 8]);
+  put('obstaculo', [3, 8], [4, 5], [4, 6], [4, 7], [4, 8]);
   // Dormitorio
   put('cama', [5, 1], [6, 1], [5, 2], [6, 2]);
-  put('mesa', [7, 0], [7, 3]);
-  put('planta', [8, 1]);
-  put('estanteria', [8, 3]);
+  put('obstaculo', [7, 0], [7, 3], [8, 1], [8, 3]);
   // Salón
-  put('mesa', [6, 4]);
-  put('estanteria', [6, 5]);
-  put('tocadiscos', [6, 6]);
-  put('planta', [7, 4]);
+  put('obstaculo', [6, 4], [6, 5], [6, 6], [7, 4]);
   put('silla', [7, 8], [8, 5], [8, 6], [8, 8]);
 
-  const windows = {
-    [key(1, 8)]: ['e'],
-    [key(4, 8)]: ['e'],
-    [key(6, 8)]: ['e'],
-    [key(5, 0)]: ['w'],
-    [key(8, 0)]: ['w'],
-  };
-
-  const characters = [
-    { id: 'ashton',    name: 'Ashton',    color: '#a1887f', victim: false },
-    { id: 'bruce',     name: 'Bruce',     color: '#f9a825', victim: false },
-    { id: 'charlotte', name: 'Charlotte', color: '#ad1457', victim: false },
-    { id: 'dakota',    name: 'Dakota',    color: '#78909c', victim: false },
-    { id: 'ethan',     name: 'Ethan',     color: '#7e57c2', victim: false },
-    { id: 'fanny',     name: 'Fanny',     color: '#ec407a', victim: false },
-    { id: 'gloria',    name: 'Gloria',    color: '#5d4037', victim: false },
-    { id: 'hazel',     name: 'Hazel',     color: '#00897b', victim: false },
-    { id: 'vin',       name: 'Vin',       color: '#37474f', victim: true },
-  ];
-
   return {
-    rows: 9,
-    cols: 9,
+    size: 9,
     rooms,
     cellRoom,
     furniture,
-    windows,
-    characters,
-    placements: {},   // "r,c" -> charId
+    placements: {},   // "r,c" -> letra
     manualX: [],      // ["r,c", ...]
-    furnitureBlocks: true,
-    notes: '',
     answer: '',
-    bgImage: null,
-    bgOpacity: 50,
+    step: 4,
+  };
+}
+
+function blankState() {
+  return {
+    size: 9,
+    rooms: [],
+    cellRoom: {},
+    furniture: {},
+    placements: {},
+    manualX: [],
+    answer: '',
+    step: 1,
   };
 }
 
@@ -120,10 +107,10 @@ function defaultState() {
  * Estado y persistencia
  * ------------------------------------------------------------ */
 let state = loadState();
-let mode = 'play';                 // 'play' | 'edit'
-let selectedCharId = null;
+let selectedChar = null;
 let xToolActive = false;
 let selectedRoomId = state.rooms[0] ? state.rooms[0].id : null;
+let furnTool = 'obstaculo';
 let painting = false;
 
 function loadState() {
@@ -131,39 +118,32 @@ function loadState() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const s = JSON.parse(raw);
-      if (s && s.rows && s.cols && Array.isArray(s.characters)) return { ...defaultState(), ...s };
+      if (s && typeof s.size === 'number' && Array.isArray(s.rooms)) return { ...blankState(), ...s };
     }
-  } catch (e) { /* estado corrupto: se ignora */ }
-  return defaultState();
+  } catch (e) { /* estado corrupto o almacenamiento no disponible */ }
+  return exampleState();
 }
 
 function saveState() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch (e) {
-    // Cuota superada (normalmente por la imagen de fondo): se guarda sin imagen.
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, bgImage: null }));
-    } catch (e2) { /* sin persistencia */ }
-  }
+  } catch (e) { /* sin persistencia */ }
 }
 
 /* ------------------------------------------------------------
  * Utilidades
  * ------------------------------------------------------------ */
 const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => document.querySelectorAll(sel);
 
 /** confirm() propio basado en <dialog> (los nativos no funcionan en visores embebidos). */
-function askConfirm(message, { okOnly = false } = {}) {
+function askConfirm(message) {
   return new Promise((resolve) => {
     const dlg = $('#dlg-confirm');
     $('#dlg-confirm-msg').textContent = message;
-    const cancel = $('#dlg-confirm-cancel');
-    cancel.hidden = okOnly;
-    $('#dlg-confirm').querySelector('button[value="ok"]').textContent = okOnly ? 'Aceptar' : 'Sí';
     dlg.returnValue = 'cancel';
     dlg.onclose = () => resolve(dlg.returnValue === 'ok');
-    cancel.onclick = () => dlg.close('cancel');
+    $('#dlg-confirm-cancel').onclick = () => dlg.close('cancel');
     dlg.showModal();
   });
 }
@@ -191,33 +171,29 @@ function hexToRgba(hex, alpha) {
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
 }
 
-function furnitureType(id) {
-  return FURNITURE_TYPES.find((t) => t.id === id) || FURNITURE_TYPES[FURNITURE_TYPES.length - 1];
-}
-
 function roomOf(r, c) {
   return state.cellRoom[key(r, c)] || null;
 }
 
-function isBlockedCell(r, c) {
-  if (!state.furnitureBlocks) return false;
-  const f = state.furniture[key(r, c)];
-  return !!f && furnitureType(f).blocks;
+function isObstacle(r, c) {
+  return state.furniture[key(r, c)] === 'obstaculo';
 }
 
 /** Casillas tachadas automáticamente por las filas/columnas de los colocados. */
 function computeAutoX() {
   const auto = new Set();
-  for (const [k, charId] of Object.entries(state.placements)) {
-    if (!charId) continue;
+  for (const [k, letter] of Object.entries(state.placements)) {
+    if (!letter) continue;
     const [r, c] = k.split(',').map(Number);
-    for (let i = 0; i < state.cols; i++) if (i !== c) auto.add(key(r, i));
-    for (let i = 0; i < state.rows; i++) if (i !== r) auto.add(key(i, c));
+    for (let i = 0; i < state.size; i++) {
+      if (i !== c) auto.add(key(r, i));
+      if (i !== r) auto.add(key(i, c));
+    }
   }
   return auto;
 }
 
-/** Colocaciones en conflicto (misma fila o columna que otro personaje). */
+/** Colocaciones en conflicto (misma fila o columna que otra letra, o sobre un obstáculo). */
 function computeConflicts() {
   const conflicts = new Set();
   const entries = Object.entries(state.placements).filter(([, v]) => v);
@@ -230,16 +206,13 @@ function computeConflicts() {
         conflicts.add(entries[j][0]);
       }
     }
-  }
-  for (const [k] of entries) {
-    const [r, c] = k.split(',').map(Number);
-    if (isBlockedCell(r, c)) conflicts.add(k);
+    if (isObstacle(r1, c1)) conflicts.add(entries[i][0]);
   }
   return conflicts;
 }
 
-function placementCellOf(charId) {
-  for (const [k, v] of Object.entries(state.placements)) if (v === charId) return k;
+function placementCellOf(letter) {
+  for (const [k, v] of Object.entries(state.placements)) if (v === letter) return k;
   return null;
 }
 
@@ -247,10 +220,9 @@ function placementCellOf(charId) {
  * Render del tablero
  * ------------------------------------------------------------ */
 function labelCells() {
-  // Para cada habitación: casilla de su fila más baja, columna central.
   const byRoom = {};
-  for (let r = 0; r < state.rows; r++) {
-    for (let c = 0; c < state.cols; c++) {
+  for (let r = 0; r < state.size; r++) {
+    for (let c = 0; c < state.size; c++) {
       const id = roomOf(r, c);
       if (!id) continue;
       (byRoom[id] = byRoom[id] || []).push([r, c]);
@@ -268,18 +240,19 @@ function labelCells() {
 
 function renderBoard() {
   const board = $('#board');
+  const playMode = state.step === 4;
   board.innerHTML = '';
-  board.style.gridTemplateColumns = `repeat(${state.cols}, 1fr)`;
+  board.style.gridTemplateColumns = `repeat(${state.size}, 1fr)`;
 
-  const autoX = mode === 'play' ? computeAutoX() : new Set();
-  const conflicts = mode === 'play' ? computeConflicts() : new Set();
+  const autoX = playMode ? computeAutoX() : new Set();
+  const conflicts = playMode ? computeConflicts() : new Set();
   const manualX = new Set(state.manualX);
   const labels = labelCells();
   const roomById = Object.fromEntries(state.rooms.map((r) => [r.id, r]));
-  const charById = Object.fromEntries(state.characters.map((ch) => [ch.id, ch]));
+  const letters = charactersFor(state.size);
 
-  for (let r = 0; r < state.rows; r++) {
-    for (let c = 0; c < state.cols; c++) {
+  for (let r = 0; r < state.size; r++) {
+    for (let c = 0; c < state.size; c++) {
       const k = key(r, c);
       const cell = document.createElement('div');
       cell.className = 'cell';
@@ -288,7 +261,7 @@ function renderBoard() {
 
       const roomId = roomOf(r, c);
       if (roomId && roomById[roomId]) {
-        cell.style.background = hexToRgba(roomById[roomId].color, 0.45);
+        cell.style.backgroundColor = hexToRgba(roomById[roomId].color, 0.45);
       } else {
         cell.classList.add('no-room');
       }
@@ -296,50 +269,36 @@ function renderBoard() {
       // Paredes gruesas donde cambia la habitación o se acaba el mapa.
       const sides = { n: [r - 1, c], s: [r + 1, c], w: [r, c - 1], e: [r, c + 1] };
       for (const [side, [nr, nc]] of Object.entries(sides)) {
-        const out = nr < 0 || nc < 0 || nr >= state.rows || nc >= state.cols;
-        const neighborRoom = out ? undefined : roomOf(nr, nc);
-        if (out || neighborRoom !== roomId) {
+        const out = nr < 0 || nc < 0 || nr >= state.size || nc >= state.size;
+        if (out || roomOf(nr, nc) !== roomId) {
           const wall = document.createElement('div');
           wall.className = `wall ${side}`;
           cell.appendChild(wall);
         }
       }
 
-      // Ventanas
-      for (const side of state.windows[k] || []) {
-        const w = document.createElement('div');
-        w.className = `window ${side}`;
-        cell.appendChild(w);
-      }
-
       // Mueble
-      const furnId = state.furniture[k];
-      if (furnId) {
-        const t = furnitureType(furnId);
+      const furn = state.furniture[k];
+      if (furn === 'obstaculo') {
+        cell.classList.add('obstacle');
+        const x = document.createElement('span');
+        x.className = 'xmark obstacle-x';
+        x.textContent = '✕';
+        cell.appendChild(x);
+      } else if (furn && FURNITURE[furn]) {
         const span = document.createElement('span');
         span.className = 'furn';
-        span.textContent = t.icon;
+        span.textContent = FURNITURE[furn].icon;
         cell.appendChild(span);
-        if (t.blocks && state.furnitureBlocks) {
-          cell.classList.add('furn-blocking');
-          if (mode === 'play') {
-            const x = document.createElement('span');
-            x.className = 'xmark furniture-x';
-            x.textContent = '✕';
-            cell.appendChild(x);
-          }
-        }
       }
 
-      if (mode === 'play') {
-        const charId = state.placements[k];
-        if (charId && charById[charId]) {
-          const ch = charById[charId];
+      if (playMode) {
+        const letter = state.placements[k];
+        if (letter && letters.includes(letter)) {
           const token = document.createElement('div');
           token.className = 'token' + (conflicts.has(k) ? ' conflict' : '');
-          token.style.background = ch.color;
-          token.textContent = (ch.name.trim()[0] || '?').toUpperCase();
-          token.title = ch.name + (ch.victim ? ' (víctima)' : '');
+          token.style.background = charColor(letter, letters.indexOf(letter));
+          token.textContent = letter;
           cell.appendChild(token);
           cell.classList.add('has-token');
         } else if (manualX.has(k)) {
@@ -347,12 +306,7 @@ function renderBoard() {
           x.className = 'xmark manual';
           x.textContent = '✕';
           cell.appendChild(x);
-        } else if (autoX.has(k) && !furnId) {
-          const x = document.createElement('span');
-          x.className = 'xmark auto';
-          x.textContent = '✕';
-          cell.appendChild(x);
-        } else if (autoX.has(k) && furnId && !isBlockedCell(r, c)) {
+        } else if (autoX.has(k) && furn !== 'obstaculo') {
           const x = document.createElement('span');
           x.className = 'xmark auto';
           x.textContent = '✕';
@@ -371,97 +325,23 @@ function renderBoard() {
       board.appendChild(cell);
     }
   }
-
-  // Imagen de fondo (modo edición)
-  const img = $('#bg-img');
-  if (state.bgImage && mode === 'edit') {
-    img.src = state.bgImage;
-    img.hidden = false;
-    img.style.opacity = state.bgOpacity / 100;
-  } else {
-    img.hidden = true;
-  }
 }
 
 /* ------------------------------------------------------------
  * Render de paneles
  * ------------------------------------------------------------ */
-function renderCharChips() {
-  const wrap = $('#char-chips');
-  wrap.innerHTML = '';
-  for (const ch of state.characters) {
-    const placedAt = placementCellOf(ch.id);
-    const chip = document.createElement('button');
-    chip.className = 'chip'
-      + (selectedCharId === ch.id ? ' selected' : '')
-      + (placedAt ? ' placed' : '')
-      + (ch.victim ? ' victim' : '');
-    chip.innerHTML = `<span class="dot" style="background:${ch.color}"></span><span class="name"></span>${placedAt ? '<span class="check">✔</span>' : ''}`;
-    chip.querySelector('.name').textContent = ch.name + (ch.victim ? ' ☠' : '');
-    chip.addEventListener('click', () => {
-      selectedCharId = selectedCharId === ch.id ? null : ch.id;
-      xToolActive = false;
-      renderPanels();
-    });
-    wrap.appendChild(chip);
-  }
-  $('#btn-xtool').classList.toggle('selected', xToolActive);
-}
-
-function renderPlayStatus() {
-  const el = $('#play-status');
-  const placed = Object.values(state.placements).filter(Boolean).length;
-  const total = state.characters.length;
-  const conflicts = computeConflicts();
-  if (conflicts.size > 0) {
-    el.className = 'status bad';
-    el.textContent = `⚠️ Hay ${conflicts.size} casillas en conflicto (misma fila/columna o sobre un mueble).`;
-  } else if (placed === total && total > 0) {
-    el.className = 'status ok';
-    el.textContent = '🎉 ¡Todos colocados y sin conflictos!';
-  } else {
-    el.className = 'status';
-    el.textContent = `${placed} de ${total} personajes colocados.`;
-  }
-}
-
-function renderCharEditor() {
-  const wrap = $('#char-editor');
-  wrap.innerHTML = '';
-  state.characters.forEach((ch, i) => {
-    const row = document.createElement('div');
-    row.className = 'char-row';
-
-    const color = document.createElement('input');
-    color.type = 'color';
-    color.value = ch.color;
-    color.addEventListener('input', () => { ch.color = color.value; saveState(); renderBoard(); renderCharChips(); });
-
-    const name = document.createElement('input');
-    name.type = 'text';
-    name.value = ch.name;
-    name.addEventListener('change', () => { ch.name = name.value.trim() || ch.name; saveState(); renderAll(); });
-
-    const victimBtn = document.createElement('button');
-    victimBtn.className = 'small';
-    victimBtn.textContent = ch.victim ? '☠' : '🙂';
-    victimBtn.title = ch.victim ? 'Es la víctima (pulsa para cambiar)' : 'Marcar como víctima';
-    victimBtn.addEventListener('click', () => { ch.victim = !ch.victim; saveState(); renderAll(); });
-
-    const del = document.createElement('button');
-    del.className = 'small danger';
-    del.textContent = '🗑';
-    del.title = 'Eliminar personaje';
-    del.addEventListener('click', () => {
-      state.characters.splice(i, 1);
-      for (const [k, v] of Object.entries(state.placements)) if (v === ch.id) delete state.placements[k];
-      if (selectedCharId === ch.id) selectedCharId = null;
-      saveState(); renderAll();
-    });
-
-    row.append(color, name, victimBtn, del);
-    wrap.appendChild(row);
+function renderStepper() {
+  $$('.step-btn').forEach((btn) => {
+    btn.classList.toggle('active', +btn.dataset.step === state.step);
   });
+  for (let i = 1; i <= 4; i++) $(`#step-${i}`).hidden = state.step !== i;
+  $('#btn-prev').disabled = state.step === 1;
+  $('#btn-next').disabled = state.step === 4;
+}
+
+function renderSizeStep() {
+  $('#size-value').textContent = `${state.size} × ${state.size}`;
+  $('#char-preview').textContent = 'Personajes: ' + charactersFor(state.size).join(' ');
 }
 
 function renderRoomList() {
@@ -473,12 +353,7 @@ function renderRoomList() {
   for (const room of state.rooms) {
     const row = document.createElement('div');
     row.className = 'room-row' + (selectedRoomId === room.id ? ' selected' : '');
-    row.addEventListener('click', () => {
-      selectedRoomId = room.id;
-      const radio = document.querySelector('input[name="etool"][value="room"]');
-      if (radio) radio.checked = true;
-      renderRoomList();
-    });
+    row.addEventListener('click', () => { selectedRoomId = room.id; renderRoomList(); });
 
     const color = document.createElement('input');
     color.type = 'color';
@@ -501,7 +376,7 @@ function renderRoomList() {
 
     const del = document.createElement('button');
     del.textContent = '🗑';
-    del.title = 'Eliminar habitación (sus casillas quedan vacías)';
+    del.title = 'Eliminar habitación';
     del.addEventListener('click', async (e) => {
       e.stopPropagation();
       if (!(await askConfirm(`¿Eliminar «${room.name}»?`))) return;
@@ -515,40 +390,72 @@ function renderRoomList() {
   }
 }
 
-function renderEditControls() {
-  $('#grid-rows').value = state.rows;
-  $('#grid-cols').value = state.cols;
-  $('#bg-opacity').value = state.bgOpacity;
-  $('#opt-furniture-blocks').checked = state.furnitureBlocks;
+function renderFurnTools() {
+  $$('#furn-tools .tool-chip').forEach((btn) => {
+    btn.classList.toggle('selected', btn.dataset.furn === furnTool);
+  });
 }
 
-function renderPanels() {
-  renderCharChips();
-  renderPlayStatus();
-  renderCharEditor();
-  renderRoomList();
-  renderEditControls();
-  renderBoard();
+function renderCharChips() {
+  const wrap = $('#char-chips');
+  wrap.innerHTML = '';
+  const letters = charactersFor(state.size);
+  letters.forEach((letter, i) => {
+    const placed = placementCellOf(letter);
+    const chip = document.createElement('button');
+    chip.className = 'chip'
+      + (selectedChar === letter ? ' selected' : '')
+      + (placed ? ' placed' : '');
+    const dot = document.createElement('span');
+    dot.className = 'dot';
+    dot.style.background = charColor(letter, i);
+    dot.textContent = letter;
+    chip.appendChild(dot);
+    if (letter === 'V') chip.appendChild(document.createTextNode('☠'));
+    if (placed) chip.appendChild(document.createTextNode('✔'));
+    chip.title = letter === 'V' ? 'Víctima' : `Personaje ${letter}`;
+    chip.addEventListener('click', () => {
+      selectedChar = selectedChar === letter ? null : letter;
+      xToolActive = false;
+      renderCharChips();
+      renderPlayStatus();
+    });
+    wrap.appendChild(chip);
+  });
+  $('#btn-xtool').classList.toggle('selected', xToolActive);
+}
+
+function renderPlayStatus() {
+  const el = $('#play-status');
+  const letters = charactersFor(state.size);
+  const placed = Object.values(state.placements).filter((v) => letters.includes(v)).length;
+  const conflicts = computeConflicts();
+  if (conflicts.size > 0) {
+    el.className = 'status bad';
+    el.textContent = `⚠️ Hay ${conflicts.size} casillas en conflicto (misma fila/columna o sobre un obstáculo).`;
+  } else if (placed === letters.length) {
+    el.className = 'status ok';
+    el.textContent = '🎉 ¡Todos colocados y sin conflictos!';
+  } else {
+    el.className = 'status';
+    el.textContent = `${placed} de ${letters.length} personajes colocados.`;
+  }
 }
 
 function renderAll() {
-  $('#panel-play').hidden = mode !== 'play';
-  $('#panel-edit').hidden = mode !== 'edit';
-  $('#btn-mode-play').classList.toggle('active', mode === 'play');
-  $('#btn-mode-edit').classList.toggle('active', mode === 'edit');
-  $('#notes').value = state.notes;
+  renderStepper();
+  renderSizeStep();
+  renderRoomList();
+  renderFurnTools();
+  renderCharChips();
+  renderPlayStatus();
+  renderBoard();
   $('#answer-input').value = state.answer;
-  renderPanels();
 }
 
 /* ------------------------------------------------------------
  * Interacción con el tablero
  * ------------------------------------------------------------ */
-function currentEditTool() {
-  const checked = document.querySelector('input[name="etool"]:checked');
-  return checked ? checked.value : 'room';
-}
-
 function flashCell(cell) {
   cell.classList.remove('flash');
   void cell.offsetWidth; // reinicia la animación
@@ -565,91 +472,63 @@ function handlePlayClick(r, c, cell) {
     saveState(); renderBoard();
     return;
   }
-  if (selectedCharId) {
-    if (state.placements[k] === selectedCharId) {
+  if (selectedChar) {
+    if (state.placements[k] === selectedChar) {
       delete state.placements[k];
     } else {
-      if (isBlockedCell(r, c)) { flashCell(cell); return; }
-      const prev = placementCellOf(selectedCharId);
+      if (isObstacle(r, c)) { flashCell(cell); return; }
+      const prev = placementCellOf(selectedChar);
       if (prev) delete state.placements[prev];
-      state.placements[k] = selectedCharId;
+      state.placements[k] = selectedChar;
     }
-    saveState(); renderPanels();
+    saveState(); renderCharChips(); renderPlayStatus(); renderBoard();
     return;
   }
   if (state.placements[k]) {
     delete state.placements[k];
-    saveState(); renderPanels();
+    saveState(); renderCharChips(); renderPlayStatus(); renderBoard();
   }
 }
 
-function applyEditAt(r, c, tool, ev) {
+function applyEditAt(r, c) {
   const k = key(r, c);
-  if (tool === 'room') {
-    if (!selectedRoomId) return;
-    if (state.cellRoom[k] === selectedRoomId) return;
+  if (state.step === 2) {
+    if (!selectedRoomId || state.cellRoom[k] === selectedRoomId) return;
     state.cellRoom[k] = selectedRoomId;
-  } else if (tool === 'furniture') {
-    const type = $('#furniture-type').value;
-    if (state.furniture[k] === type) return;
-    state.furniture[k] = type;
-  } else if (tool === 'erase') {
-    if (!state.furniture[k] && !state.windows[k] && !state.cellRoom[k]) return;
-    delete state.furniture[k];
-    delete state.windows[k];
-    if (ev && ev.type === 'pointerdown' && ev.altKey) delete state.cellRoom[k];
-  } else if (tool === 'window') {
-    if (!ev || ev.type !== 'pointerdown') return; // solo con clic directo
-    const rect = ev.currentTarget ? ev.currentTarget.getBoundingClientRect() : null;
-    const box = rect || ev.target.getBoundingClientRect();
-    const x = ev.clientX - box.left;
-    const y = ev.clientY - box.top;
-    const dists = { n: y, s: box.height - y, w: x, e: box.width - x };
-    const side = Object.entries(dists).sort((a, b) => a[1] - b[1])[0][0];
-    const arr = state.windows[k] || [];
-    const idx = arr.indexOf(side);
-    if (idx >= 0) arr.splice(idx, 1); else arr.push(side);
-    if (arr.length) state.windows[k] = arr; else delete state.windows[k];
+  } else if (state.step === 3) {
+    if (furnTool === 'borrar') {
+      if (!state.furniture[k]) return;
+      delete state.furniture[k];
+    } else {
+      if (state.furniture[k] === furnTool) return;
+      state.furniture[k] = furnTool;
+    }
+  } else {
+    return;
   }
   saveState();
   renderBoard();
-}
-
-function cellFromEvent(ev) {
-  const cell = ev.target.closest('.cell');
-  if (!cell) return null;
-  return { cell, r: +cell.dataset.r, c: +cell.dataset.c };
 }
 
 function setupBoardEvents() {
   const board = $('#board');
 
   board.addEventListener('pointerdown', (ev) => {
-    const hit = cellFromEvent(ev);
-    if (!hit) return;
-    if (mode === 'play') {
-      handlePlayClick(hit.r, hit.c, hit.cell);
-      return;
+    const cell = ev.target.closest('.cell');
+    if (!cell) return;
+    const r = +cell.dataset.r, c = +cell.dataset.c;
+    if (state.step === 4) {
+      handlePlayClick(r, c, cell);
+    } else {
+      painting = true;
+      applyEditAt(r, c);
     }
-    painting = true;
-    // La herramienta de ventana necesita las coordenadas del clic dentro de la celda.
-    applyEditAt(hit.r, hit.c, currentEditTool(), {
-      type: 'pointerdown',
-      clientX: ev.clientX,
-      clientY: ev.clientY,
-      altKey: ev.altKey,
-      currentTarget: hit.cell,
-      target: hit.cell,
-    });
   });
 
   board.addEventListener('pointerover', (ev) => {
-    if (!painting || mode !== 'edit') return;
-    const hit = cellFromEvent(ev);
-    if (!hit) return;
-    const tool = currentEditTool();
-    if (tool === 'window') return; // las ventanas solo con clic
-    applyEditAt(hit.r, hit.c, tool, null);
+    if (!painting) return;
+    const cell = ev.target.closest('.cell');
+    if (cell) applyEditAt(+cell.dataset.r, +cell.dataset.c);
   });
 
   window.addEventListener('pointerup', () => { painting = false; });
@@ -658,34 +537,40 @@ function setupBoardEvents() {
 /* ------------------------------------------------------------
  * Controles
  * ------------------------------------------------------------ */
+function goToStep(step) {
+  state.step = Math.max(1, Math.min(4, step));
+  saveState();
+  renderAll();
+}
+
+function setSize(size) {
+  const s = Math.max(MIN_SIZE, Math.min(MAX_SIZE, size));
+  if (s === state.size) return;
+  state.size = s;
+  // Limpia lo que quede fuera del nuevo tamaño o de la nueva lista de letras.
+  const letters = charactersFor(s);
+  const inBounds = (k) => {
+    const [r, c] = k.split(',').map(Number);
+    return r < s && c < s;
+  };
+  for (const dict of [state.cellRoom, state.furniture, state.placements]) {
+    for (const k of Object.keys(dict)) if (!inBounds(k)) delete dict[k];
+  }
+  for (const [k, v] of Object.entries(state.placements)) if (!letters.includes(v)) delete state.placements[k];
+  state.manualX = state.manualX.filter(inBounds);
+  saveState();
+  renderAll();
+}
+
 function setupControls() {
-  $('#btn-mode-play').addEventListener('click', () => { mode = 'play'; renderAll(); });
-  $('#btn-mode-edit').addEventListener('click', () => { mode = 'edit'; renderAll(); });
-
-  $('#btn-xtool').addEventListener('click', () => {
-    xToolActive = !xToolActive;
-    if (xToolActive) selectedCharId = null;
-    renderPanels();
+  $$('.step-btn').forEach((btn) => {
+    btn.addEventListener('click', () => goToStep(+btn.dataset.step));
   });
+  $('#btn-prev').addEventListener('click', () => goToStep(state.step - 1));
+  $('#btn-next').addEventListener('click', () => goToStep(state.step + 1));
 
-  $('#btn-clear-plays').addEventListener('click', async () => {
-    if (!(await askConfirm('¿Quitar todos los personajes y tachaduras manuales?'))) return;
-    state.placements = {};
-    state.manualX = [];
-    saveState(); renderPanels();
-  });
-
-  $('#btn-add-char').addEventListener('click', async () => {
-    const name = await askText('Nombre del personaje:');
-    if (!name || !name.trim()) return;
-    state.characters.push({
-      id: 'ch' + Date.now(),
-      name: name.trim(),
-      color: CHAR_PALETTE[state.characters.length % CHAR_PALETTE.length],
-      victim: false,
-    });
-    saveState(); renderAll();
-  });
+  $('#size-minus').addEventListener('click', () => setSize(state.size - 1));
+  $('#size-plus').addEventListener('click', () => setSize(state.size + 1));
 
   $('#btn-add-room').addEventListener('click', async () => {
     const name = await askText('Nombre de la habitación:');
@@ -697,121 +582,45 @@ function setupControls() {
     };
     state.rooms.push(room);
     selectedRoomId = room.id;
-    const radio = document.querySelector('input[name="etool"][value="room"]');
-    if (radio) radio.checked = true;
-    saveState(); renderRoomList();
-  });
-
-  $('#btn-apply-size').addEventListener('click', () => {
-    const rows = Math.max(3, Math.min(15, +$('#grid-rows').value || state.rows));
-    const cols = Math.max(3, Math.min(15, +$('#grid-cols').value || state.cols));
-    state.rows = rows;
-    state.cols = cols;
-    // Limpia lo que quede fuera del nuevo tamaño.
-    const inBounds = (k) => {
-      const [r, c] = k.split(',').map(Number);
-      return r < rows && c < cols;
-    };
-    for (const dict of [state.cellRoom, state.furniture, state.windows, state.placements]) {
-      for (const k of Object.keys(dict)) if (!inBounds(k)) delete dict[k];
-    }
-    state.manualX = state.manualX.filter(inBounds);
-    saveState(); renderAll();
-  });
-
-  $('#bg-file').addEventListener('change', (ev) => {
-    const file = ev.target.files && ev.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      state.bgImage = reader.result;
-      saveState(); renderBoard();
-    };
-    reader.readAsDataURL(file);
-  });
-
-  $('#bg-opacity').addEventListener('input', (ev) => {
-    state.bgOpacity = +ev.target.value;
-    $('#bg-img').style.opacity = state.bgOpacity / 100;
     saveState();
+    renderRoomList();
   });
 
-  $('#btn-bg-remove').addEventListener('click', () => {
-    state.bgImage = null;
-    $('#bg-file').value = '';
-    saveState(); renderBoard();
+  $$('#furn-tools .tool-chip').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      furnTool = btn.dataset.furn;
+      renderFurnTools();
+    });
   });
 
-  $('#opt-furniture-blocks').addEventListener('change', (ev) => {
-    state.furnitureBlocks = ev.target.checked;
-    saveState(); renderBoard();
+  $('#btn-xtool').addEventListener('click', () => {
+    xToolActive = !xToolActive;
+    if (xToolActive) selectedChar = null;
+    renderCharChips();
   });
 
-  $('#btn-clear-map').addEventListener('click', async () => {
-    if (!(await askConfirm('¿Vaciar todo el mapa (habitaciones, muebles, ventanas y colocaciones)?'))) return;
-    state.cellRoom = {};
-    state.furniture = {};
-    state.windows = {};
+  $('#btn-clear-plays').addEventListener('click', async () => {
+    if (!(await askConfirm('¿Quitar todos los personajes y tachaduras manuales?'))) return;
     state.placements = {};
     state.manualX = [];
-    saveState(); renderAll();
+    saveState();
+    renderCharChips(); renderPlayStatus(); renderBoard();
   });
 
-  $('#btn-reset-all').addEventListener('click', async () => {
-    if (!(await askConfirm('¿Descartar todo y volver al puzle de ejemplo del libro?'))) return;
-    state = defaultState();
-    selectedCharId = null;
+  $('#btn-new').addEventListener('click', async () => {
+    if (!(await askConfirm('¿Empezar un mapa nuevo desde cero? Se borrará el actual.'))) return;
+    state = blankState();
+    selectedChar = null;
     xToolActive = false;
-    selectedRoomId = state.rooms[0].id;
-    saveState(); renderAll();
+    selectedRoomId = null;
+    furnTool = 'obstaculo';
+    saveState();
+    renderAll();
   });
 
-  $('#btn-export').addEventListener('click', () => {
-    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'murdoku-puzle.json';
-    a.click();
-    URL.revokeObjectURL(a.href);
-  });
-
-  $('#btn-import').addEventListener('click', () => $('#import-file').click());
-  $('#import-file').addEventListener('change', (ev) => {
-    const file = ev.target.files && ev.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const s = JSON.parse(reader.result);
-        if (!s || typeof s.rows !== 'number' || typeof s.cols !== 'number') throw new Error('formato');
-        state = { ...defaultState(), ...s };
-        selectedCharId = null;
-        xToolActive = false;
-        saveState(); renderAll();
-      } catch (e) {
-        askConfirm('El archivo no parece un puzle de Murdoku válido.', { okOnly: true });
-      }
-      ev.target.value = '';
-    };
-    reader.readAsText(file);
-  });
-
-  $('#notes').addEventListener('input', (ev) => { state.notes = ev.target.value; saveState(); });
-  $('#answer-input').addEventListener('input', (ev) => { state.answer = ev.target.value; saveState(); });
-
-  // Selector de tipo de mueble
-  const sel = $('#furniture-type');
-  for (const t of FURNITURE_TYPES) {
-    const opt = document.createElement('option');
-    opt.value = t.id;
-    opt.textContent = `${t.icon} ${t.name}`;
-    sel.appendChild(opt);
-  }
-
-  // Elegir mueble o habitación activa su herramienta.
-  sel.addEventListener('focus', () => {
-    const radio = document.querySelector('input[name="etool"][value="furniture"]');
-    if (radio) radio.checked = true;
+  $('#answer-input').addEventListener('input', (ev) => {
+    state.answer = ev.target.value;
+    saveState();
   });
 }
 

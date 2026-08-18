@@ -10,88 +10,64 @@
 <body>
   <header>
     <h1>🔎 Murdoku</h1>
-    <nav id="mode-switch">
-      <button id="btn-mode-play" class="mode-btn active">🧩 Resolver</button>
-      <button id="btn-mode-edit" class="mode-btn">✏️ Editar mapa</button>
-    </nav>
-    <div class="header-actions">
-      <button id="btn-export" title="Descargar el puzle como archivo JSON">⬇️ Exportar</button>
-      <button id="btn-import" title="Cargar un puzle desde un archivo JSON">⬆️ Importar</button>
-      <input type="file" id="import-file" accept="application/json" hidden>
-      <button id="btn-reset-all" title="Volver al puzle de ejemplo">♻️ Restaurar ejemplo</button>
-    </div>
+    <button id="btn-new">✨ Nuevo mapa</button>
   </header>
 
   <main>
     <aside id="panel">
-      <!-- ===================== PANEL RESOLVER ===================== -->
-      <section id="panel-play">
-        <h2>Personajes</h2>
-        <p class="hint">Elige un personaje y toca la casilla donde está. Su fila y su columna se tachan solas. Toca su casilla otra vez para quitarlo.</p>
+      <nav id="stepper">
+        <button class="step-btn" data-step="1"><span class="num">1</span> Tamaño</button>
+        <button class="step-btn" data-step="2"><span class="num">2</span> Habitaciones</button>
+        <button class="step-btn" data-step="3"><span class="num">3</span> Muebles</button>
+        <button class="step-btn" data-step="4"><span class="num">4</span> Resolver</button>
+      </nav>
+
+      <!-- Paso 1: tamaño -->
+      <section id="step-1" class="step-panel">
+        <p class="hint">Elige el tamaño de la cuadrícula. Los personajes se crean solos: una letra por fila, y la víctima siempre es la <strong>V</strong>.</p>
+        <div class="size-row">
+          <button id="size-minus" class="round">−</button>
+          <span id="size-value" class="size-value">9 × 9</span>
+          <button id="size-plus" class="round">＋</button>
+        </div>
+        <p id="char-preview" class="char-preview"></p>
+      </section>
+
+      <!-- Paso 2: habitaciones -->
+      <section id="step-2" class="step-panel" hidden>
+        <p class="hint">Elige una habitación y <strong>arrastra</strong> por el mapa para pintarla.</p>
+        <div id="room-list"></div>
+        <button id="btn-add-room">＋ Añadir habitación</button>
+      </section>
+
+      <!-- Paso 3: muebles -->
+      <section id="step-3" class="step-panel" hidden>
+        <p class="hint">Los <strong>obstáculos</strong> tachan su casilla: ahí no puede haber nadie. En <strong>sillas</strong> y <strong>camas</strong> sí se puede estar.</p>
+        <div id="furn-tools" class="chip-col">
+          <button class="chip tool-chip selected" data-furn="obstaculo"><span class="obst-dot"></span> Obstáculo</button>
+          <button class="chip tool-chip" data-furn="silla">🪑 Silla</button>
+          <button class="chip tool-chip" data-furn="cama">🛏️ Cama</button>
+          <button class="chip tool-chip" data-furn="borrar">🧽 Borrar</button>
+        </div>
+      </section>
+
+      <!-- Paso 4: resolver -->
+      <section id="step-4" class="step-panel" hidden>
+        <p class="hint">Toca una letra y luego su casilla. Su fila y su columna se tachan solas. Toca su casilla otra vez para quitarla.</p>
         <div id="char-chips"></div>
-        <div class="tool-row">
-          <button id="btn-xtool" class="chip xtool">✕ Tachar casilla a mano</button>
-        </div>
+        <button id="btn-xtool" class="chip xtool">✕ Tachar casilla a mano</button>
         <div id="play-status" class="status"></div>
-        <div class="tool-row">
-          <button id="btn-clear-plays" class="danger">🧹 Limpiar colocaciones</button>
-        </div>
-        <details>
-          <summary>Editar personajes</summary>
-          <div id="char-editor"></div>
-          <button id="btn-add-char" class="small">＋ Añadir personaje</button>
-        </details>
-        <details open>
-          <summary>Notas de pistas</summary>
-          <textarea id="notes" rows="6" placeholder="Apunta aquí las pistas: «Bruce estaba delante de una ventana», «Ethan junto a una planta»…"></textarea>
-        </details>
+        <button id="btn-clear-plays" class="danger">🧹 Limpiar colocaciones</button>
       </section>
 
-      <!-- ===================== PANEL EDITAR ===================== -->
-      <section id="panel-edit" hidden>
-        <h2>Herramientas</h2>
-        <p class="hint">Puedes subir la foto del mapa como fondo y «calcar» encima las habitaciones y los muebles.</p>
-        <div class="tool-group" id="edit-tools">
-          <label class="tool"><input type="radio" name="etool" value="room" checked> 🏠 Pintar habitación</label>
-          <div id="room-list" class="sub"></div>
-          <button id="btn-add-room" class="small">＋ Añadir habitación</button>
-
-          <label class="tool"><input type="radio" name="etool" value="furniture"> 🛋️ Mueble</label>
-          <div class="sub">
-            <select id="furniture-type"></select>
-          </div>
-
-          <label class="tool"><input type="radio" name="etool" value="window"> 🪟 Ventana <span class="hint-inline">(toca cerca del borde de la casilla)</span></label>
-          <label class="tool"><input type="radio" name="etool" value="erase"> 🧽 Borrar mueble / ventana <span class="hint-inline">(con Alt también borra la habitación)</span></label>
-        </div>
-
-        <h2>Cuadrícula</h2>
-        <div class="tool-row">
-          <label>Filas <input type="number" id="grid-rows" min="3" max="15"></label>
-          <label>Columnas <input type="number" id="grid-cols" min="3" max="15"></label>
-          <button id="btn-apply-size" class="small">Aplicar</button>
-        </div>
-
-        <h2>Foto de fondo</h2>
-        <div class="tool-row">
-          <input type="file" id="bg-file" accept="image/*">
-        </div>
-        <div class="tool-row">
-          <label>Opacidad <input type="range" id="bg-opacity" min="0" max="100" value="50"></label>
-          <button id="btn-bg-remove" class="small">Quitar</button>
-        </div>
-
-        <h2>Opciones</h2>
-        <label class="tool"><input type="checkbox" id="opt-furniture-blocks" checked> Los muebles (salvo camas y sillas) tachan su casilla</label>
-        <div class="tool-row">
-          <button id="btn-clear-map" class="danger">🗑️ Vaciar mapa</button>
-        </div>
-      </section>
+      <div class="nav-row">
+        <button id="btn-prev">← Anterior</button>
+        <button id="btn-next" class="primary">Siguiente →</button>
+      </div>
     </aside>
 
     <section id="board-wrap">
       <div id="board-frame">
-        <img id="bg-img" alt="" hidden>
         <div id="board"></div>
       </div>
       <div id="answer">
@@ -100,10 +76,6 @@
       </div>
     </section>
   </main>
-
-  <footer>
-    <span>Hecho para resolver los puzles Murdoku sin escribir en el libro 📖</span>
-  </footer>
 
   <dialog id="dlg-confirm">
     <form method="dialog">
