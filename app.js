@@ -244,15 +244,20 @@ function toggleCandidate(letter, k) {
   if (cells.length) state.candidates[letter] = cells; else delete state.candidates[letter];
 }
 
-/** Al confirmar una letra en una casilla, deja de tener sentido como "quizá" en cualquier sitio. */
+/**
+ * Al confirmar una letra en una casilla, deja de tener sentido como "quizá" en
+ * cualquier sitio para ella, y para las demás letras deja de tener sentido en
+ * esa misma fila o columna (igual que el tachado automático).
+ */
 function resolveCandidatesFor(letter, k) {
   delete state.candidates[letter];
+  const [r, c] = k.split(',').map(Number);
   for (const other of Object.keys(state.candidates)) {
-    const idx = state.candidates[other].indexOf(k);
-    if (idx >= 0) {
-      state.candidates[other].splice(idx, 1);
-      if (!state.candidates[other].length) delete state.candidates[other];
-    }
+    const remaining = state.candidates[other].filter((ck) => {
+      const [rr, cc] = ck.split(',').map(Number);
+      return rr !== r && cc !== c;
+    });
+    if (remaining.length) state.candidates[other] = remaining; else delete state.candidates[other];
   }
 }
 
