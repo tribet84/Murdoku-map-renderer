@@ -24,11 +24,22 @@
 
       <!-- Paso 1: tamaño -->
       <section id="step-1" class="step-panel">
-        <p class="hint">Elige el tamaño de la cuadrícula. Los personajes se crean solos: una letra por fila, y la víctima siempre es la <strong>V</strong>.</p>
-        <div class="size-row">
-          <button id="size-minus" class="round">−</button>
-          <span id="size-value" class="size-value">9 × 9</span>
-          <button id="size-plus" class="round">＋</button>
+        <p class="hint">Elige las dimensiones del mapa: no tiene por qué ser cuadrado. Los personajes se crean solos (una letra, y la víctima siempre es la <strong>V</strong>), tantos como el lado más corto.</p>
+        <div class="size-group">
+          <span class="size-label">Filas</span>
+          <div class="size-row">
+            <button id="rows-minus" class="round">−</button>
+            <span id="rows-value" class="size-value">9</span>
+            <button id="rows-plus" class="round">＋</button>
+          </div>
+        </div>
+        <div class="size-group">
+          <span class="size-label">Columnas</span>
+          <div class="size-row">
+            <button id="cols-minus" class="round">−</button>
+            <span id="cols-value" class="size-value">9</span>
+            <button id="cols-plus" class="round">＋</button>
+          </div>
         </div>
         <p id="char-preview" class="char-preview"></p>
       </section>
@@ -42,11 +53,12 @@
 
       <!-- Paso 3: muebles -->
       <section id="step-3" class="step-panel" hidden>
-        <p class="hint">Los <strong>obstáculos</strong> tachan su casilla: ahí no puede haber nadie. En <strong>sillas</strong> y <strong>camas</strong> sí se puede estar.</p>
+        <p class="hint">Los <strong>obstáculos</strong> tachan su casilla: ahí no puede haber nadie. En <strong>sillas</strong>, <strong>camas</strong> y <strong>alfombras</strong> sí se puede estar.</p>
         <div id="furn-tools" class="chip-col">
           <button class="chip tool-chip selected" data-furn="obstaculo"><span class="obst-dot"></span> Obstáculo</button>
           <button class="chip tool-chip" data-furn="silla">🪑 Silla</button>
           <button class="chip tool-chip" data-furn="cama">🛏️ Cama</button>
+          <button class="chip tool-chip" data-furn="alfombra">🟫 Alfombra</button>
           <button class="chip tool-chip" data-furn="borrar">🧽 Borrar</button>
         </div>
       </section>

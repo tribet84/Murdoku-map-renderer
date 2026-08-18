@@ -112,6 +112,19 @@ main {
 .hint { font-size: 0.85rem; color: #7a6570; margin: 0; }
 
 /* Paso 1 */
+.size-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.size-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #7a6570;
+}
 .size-row {
   display: flex;
   align-items: center;
@@ -125,7 +138,7 @@ main {
   font-weight: 700;
   padding: 0;
 }
-.size-value { font-size: 1.5rem; font-weight: 800; min-width: 90px; text-align: center; }
+.size-value { font-size: 1.5rem; font-weight: 800; min-width: 32px; text-align: center; }
 .char-preview {
   margin: 0;
   font-size: 0.9rem;

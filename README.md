@@ -7,11 +7,13 @@ de los libros de Murdle) sin escribir en el libro.
 
 Un asistente en 4 pasos:
 
-1. **Tamaño** — elige la cuadrícula (de 4×4 a 12×12). Los personajes se crean solos:
-   una letra por fila (A, B, C…) y la víctima siempre es la **V**.
+1. **Tamaño** — elige filas y columnas por separado (el mapa no tiene por qué ser
+   cuadrado). Los personajes se crean solos: una letra (A, B, C…) por cada lado más
+   corto del mapa, y la víctima siempre es la **V**.
 2. **Habitaciones** — añade habitaciones y píntalas arrastrando por el mapa.
 3. **Muebles** — coloca **obstáculos** (tachan su casilla: ahí no puede haber nadie),
-   **sillas** y **camas** (en estas sí se puede estar, como dicen las pistas del libro).
+   **sillas**, **camas** y **alfombras** (en estas sí se puede estar, como dicen las
+   pistas del libro).
 4. **Resolver** — toca una letra y su casilla: su fila y su columna se tachan solas con ✕.
    Los conflictos (dos letras en la misma fila/columna o alguien sobre un obstáculo) se
    marcan en rojo. También puedes tachar casillas a mano para tus deducciones, y apuntar

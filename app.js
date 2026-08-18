@@ -5,26 +5,35 @@
  * Asistente en 4 pasos: tamaño → habitaciones → muebles → resolver.
  * ============================================================ */
 
-const STORAGE_KEY = 'murdoku-state-v2';
-const MIN_SIZE = 4;
-const MAX_SIZE = 12;
+const STORAGE_KEY = 'murdoku-state-v3';
+const MIN_SIZE = 3;
+const MAX_SIZE = 15;
 
 const ROOM_PALETTE = ['#8ec9e8', '#c5aee8', '#f5a8c0', '#ffcc80', '#a5d6a7', '#fff59d', '#ffab91', '#b0bec5', '#e6ee9c'];
-const CHAR_PALETTE = ['#a1887f', '#f9a825', '#ad1457', '#78909c', '#7e57c2', '#ec407a', '#5d4037', '#00897b', '#8e24aa', '#039be5', '#7cb342'];
+const CHAR_PALETTE = ['#a1887f', '#f9a825', '#ad1457', '#78909c', '#7e57c2', '#ec407a', '#5d4037', '#00897b', '#8e24aa', '#039be5', '#7cb342', '#6d4c41', '#00acc1', '#f4511e'];
 const VICTIM_COLOR = '#37474f';
 
 const FURNITURE = {
   silla: { icon: '🪑' },
   cama: { icon: '🛏️' },
+  alfombra: { icon: '🟫' },
   obstaculo: { icon: '' },
 };
 
 const key = (r, c) => `${r},${c}`;
 
-/** Letras de los personajes para un tamaño dado: A, B, C… y la víctima siempre V. */
-function charactersFor(size) {
+/**
+ * Letras de los personajes: A, B, C… y la víctima siempre V.
+ * El máximo de personajes que caben sin repetir fila ni columna es el
+ * lado más corto del mapa (filas × columnas no tienen por qué coincidir).
+ */
+function charCount() {
+  return Math.min(state.rows, state.cols);
+}
+
+function charactersFor(count) {
   const letters = [];
-  for (let i = 0; i < size - 1; i++) letters.push(String.fromCharCode(65 + i));
+  for (let i = 0; i < count - 1; i++) letters.push(String.fromCharCode(65 + i));
   letters.push('V');
   return letters;
 }
@@ -79,7 +88,8 @@ function exampleState() {
   put('silla', [7, 8], [8, 5], [8, 6], [8, 8]);
 
   return {
-    size: 9,
+    rows: 9,
+    cols: 9,
     rooms,
     cellRoom,
     furniture,
@@ -92,7 +102,8 @@ function exampleState() {
 
 function blankState() {
   return {
-    size: 9,
+    rows: 9,
+    cols: 9,
     rooms: [],
     cellRoom: {},
     furniture: {},
@@ -118,7 +129,9 @@ function loadState() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const s = JSON.parse(raw);
-      if (s && typeof s.size === 'number' && Array.isArray(s.rooms)) return { ...blankState(), ...s };
+      if (s && typeof s.rows === 'number' && typeof s.cols === 'number' && Array.isArray(s.rooms)) {
+        return { ...blankState(), ...s };
+      }
     }
   } catch (e) { /* estado corrupto o almacenamiento no disponible */ }
   return exampleState();
@@ -185,10 +198,8 @@ function computeAutoX() {
   for (const [k, letter] of Object.entries(state.placements)) {
     if (!letter) continue;
     const [r, c] = k.split(',').map(Number);
-    for (let i = 0; i < state.size; i++) {
-      if (i !== c) auto.add(key(r, i));
-      if (i !== r) auto.add(key(i, c));
-    }
+    for (let cc = 0; cc < state.cols; cc++) if (cc !== c) auto.add(key(r, cc));
+    for (let rr = 0; rr < state.rows; rr++) if (rr !== r) auto.add(key(rr, c));
   }
   return auto;
 }
@@ -221,8 +232,8 @@ function placementCellOf(letter) {
  * ------------------------------------------------------------ */
 function labelCells() {
   const byRoom = {};
-  for (let r = 0; r < state.size; r++) {
-    for (let c = 0; c < state.size; c++) {
+  for (let r = 0; r < state.rows; r++) {
+    for (let c = 0; c < state.cols; c++) {
       const id = roomOf(r, c);
       if (!id) continue;
       (byRoom[id] = byRoom[id] || []).push([r, c]);
@@ -242,17 +253,17 @@ function renderBoard() {
   const board = $('#board');
   const playMode = state.step === 4;
   board.innerHTML = '';
-  board.style.gridTemplateColumns = `repeat(${state.size}, 1fr)`;
+  board.style.gridTemplateColumns = `repeat(${state.cols}, 1fr)`;
 
   const autoX = playMode ? computeAutoX() : new Set();
   const conflicts = playMode ? computeConflicts() : new Set();
   const manualX = new Set(state.manualX);
   const labels = labelCells();
   const roomById = Object.fromEntries(state.rooms.map((r) => [r.id, r]));
-  const letters = charactersFor(state.size);
+  const letters = charactersFor(charCount());
 
-  for (let r = 0; r < state.size; r++) {
-    for (let c = 0; c < state.size; c++) {
+  for (let r = 0; r < state.rows; r++) {
+    for (let c = 0; c < state.cols; c++) {
       const k = key(r, c);
       const cell = document.createElement('div');
       cell.className = 'cell';
@@ -269,7 +280,7 @@ function renderBoard() {
       // Paredes gruesas donde cambia la habitación o se acaba el mapa.
       const sides = { n: [r - 1, c], s: [r + 1, c], w: [r, c - 1], e: [r, c + 1] };
       for (const [side, [nr, nc]] of Object.entries(sides)) {
-        const out = nr < 0 || nc < 0 || nr >= state.size || nc >= state.size;
+        const out = nr < 0 || nc < 0 || nr >= state.rows || nc >= state.cols;
         if (out || roomOf(nr, nc) !== roomId) {
           const wall = document.createElement('div');
           wall.className = `wall ${side}`;
@@ -340,8 +351,9 @@ function renderStepper() {
 }
 
 function renderSizeStep() {
-  $('#size-value').textContent = `${state.size} × ${state.size}`;
-  $('#char-preview').textContent = 'Personajes: ' + charactersFor(state.size).join(' ');
+  $('#rows-value').textContent = state.rows;
+  $('#cols-value').textContent = state.cols;
+  $('#char-preview').textContent = 'Personajes: ' + charactersFor(charCount()).join(' ');
 }
 
 function renderRoomList() {
@@ -399,7 +411,7 @@ function renderFurnTools() {
 function renderCharChips() {
   const wrap = $('#char-chips');
   wrap.innerHTML = '';
-  const letters = charactersFor(state.size);
+  const letters = charactersFor(charCount());
   letters.forEach((letter, i) => {
     const placed = placementCellOf(letter);
     const chip = document.createElement('button');
@@ -427,7 +439,7 @@ function renderCharChips() {
 
 function renderPlayStatus() {
   const el = $('#play-status');
-  const letters = charactersFor(state.size);
+  const letters = charactersFor(charCount());
   const placed = Object.values(state.placements).filter((v) => letters.includes(v)).length;
   const conflicts = computeConflicts();
   if (conflicts.size > 0) {
@@ -543,21 +555,34 @@ function goToStep(step) {
   renderAll();
 }
 
-function setSize(size) {
-  const s = Math.max(MIN_SIZE, Math.min(MAX_SIZE, size));
-  if (s === state.size) return;
-  state.size = s;
-  // Limpia lo que quede fuera del nuevo tamaño o de la nueva lista de letras.
-  const letters = charactersFor(s);
+/** Recorta lo que quede fuera de la cuadrícula tras cambiar filas/columnas. */
+function pruneOutOfBounds() {
   const inBounds = (k) => {
     const [r, c] = k.split(',').map(Number);
-    return r < s && c < s;
+    return r < state.rows && c < state.cols;
   };
   for (const dict of [state.cellRoom, state.furniture, state.placements]) {
     for (const k of Object.keys(dict)) if (!inBounds(k)) delete dict[k];
   }
+  const letters = charactersFor(charCount());
   for (const [k, v] of Object.entries(state.placements)) if (!letters.includes(v)) delete state.placements[k];
   state.manualX = state.manualX.filter(inBounds);
+}
+
+function setRows(rows) {
+  const r = Math.max(MIN_SIZE, Math.min(MAX_SIZE, rows));
+  if (r === state.rows) return;
+  state.rows = r;
+  pruneOutOfBounds();
+  saveState();
+  renderAll();
+}
+
+function setCols(cols) {
+  const c = Math.max(MIN_SIZE, Math.min(MAX_SIZE, cols));
+  if (c === state.cols) return;
+  state.cols = c;
+  pruneOutOfBounds();
   saveState();
   renderAll();
 }
@@ -569,8 +594,10 @@ function setupControls() {
   $('#btn-prev').addEventListener('click', () => goToStep(state.step - 1));
   $('#btn-next').addEventListener('click', () => goToStep(state.step + 1));
 
-  $('#size-minus').addEventListener('click', () => setSize(state.size - 1));
-  $('#size-plus').addEventListener('click', () => setSize(state.size + 1));
+  $('#rows-minus').addEventListener('click', () => setRows(state.rows - 1));
+  $('#rows-plus').addEventListener('click', () => setRows(state.rows + 1));
+  $('#cols-minus').addEventListener('click', () => setCols(state.cols - 1));
+  $('#cols-plus').addEventListener('click', () => setCols(state.cols + 1));
 
   $('#btn-add-room').addEventListener('click', async () => {
     const name = await askText('Nombre de la habitación:');
