@@ -381,6 +381,7 @@ function renderBoard() {
           cell.appendChild(token);
           cell.classList.add('has-token');
         } else if (cands.length) {
+          cell.classList.add('has-candidates');
           const wrap = document.createElement('div');
           wrap.className = 'candidates';
           for (const cl of cands) {
