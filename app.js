@@ -635,9 +635,16 @@ function applyEditAt(r, c) {
 
 function setupBoardEvents() {
   const board = $('#board');
+  let lastPaintedKey = null;
+
+  // En touch, el navegador "captura" el puntero en la celda donde empezó el
+  // toque: pointerover nunca llega a las demás celdas al arrastrar el dedo.
+  // Por eso usamos pointermove + elementFromPoint, que funciona igual con
+  // ratón y con dedo.
+  const cellAt = (x, y) => document.elementFromPoint(x, y)?.closest('.cell') || null;
 
   board.addEventListener('pointerdown', (ev) => {
-    const cell = ev.target.closest('.cell');
+    const cell = cellAt(ev.clientX, ev.clientY);
     if (!cell) return;
     strokeUndoPushed = false;
     const r = +cell.dataset.r, c = +cell.dataset.c;
@@ -645,17 +652,25 @@ function setupBoardEvents() {
       handlePlayClick(r, c, cell);
     } else {
       painting = true;
+      lastPaintedKey = key(r, c);
+      ev.preventDefault();
       applyEditAt(r, c);
     }
   });
 
-  board.addEventListener('pointerover', (ev) => {
+  board.addEventListener('pointermove', (ev) => {
     if (!painting) return;
-    const cell = ev.target.closest('.cell');
-    if (cell) applyEditAt(+cell.dataset.r, +cell.dataset.c);
+    ev.preventDefault();
+    const cell = cellAt(ev.clientX, ev.clientY);
+    if (!cell) return;
+    const r = +cell.dataset.r, c = +cell.dataset.c;
+    const k = key(r, c);
+    if (k === lastPaintedKey) return;
+    lastPaintedKey = k;
+    applyEditAt(r, c);
   });
 
-  window.addEventListener('pointerup', () => { painting = false; });
+  window.addEventListener('pointerup', () => { painting = false; lastPaintedKey = null; });
 }
 
 /* ------------------------------------------------------------

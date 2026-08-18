@@ -282,7 +282,8 @@ main {
 #board {
   display: grid;
   width: 100%;
-  touch-action: manipulation;
+  /* Sin esto, arrastrar el dedo por el tablero hace scroll en vez de pintar. */
+  touch-action: none;
   user-select: none;
 }
 
