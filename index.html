@@ -65,11 +65,17 @@
 
       <!-- Paso 4: resolver -->
       <section id="step-4" class="step-panel" hidden>
-        <p class="hint">Toca una letra y luego su casilla. Su fila y su columna se tachan solas. Toca su casilla otra vez para quitarla.</p>
+        <p class="hint">Toca una letra y luego su casilla para confirmarla: su fila y su columna se tachan solas. Con <strong>«¿Quizá aquí?»</strong> activo puedes marcar varias casillas posibles para la misma letra, y varias letras en la misma casilla.</p>
         <div id="char-chips"></div>
-        <button id="btn-xtool" class="chip xtool">✕ Tachar casilla a mano</button>
+        <div class="tool-row">
+          <button id="btn-candidate-tool" class="chip tool-chip">✏️ ¿Quizá aquí?</button>
+          <button id="btn-xtool" class="chip xtool">✕ Tachar casilla a mano</button>
+        </div>
         <div id="play-status" class="status"></div>
-        <button id="btn-clear-plays" class="danger">🧹 Limpiar colocaciones</button>
+        <div class="tool-row">
+          <button id="btn-clear-plays" class="danger">🧹 Limpiar colocaciones</button>
+          <button id="btn-clear-candidates" class="danger">✏️🧹 Limpiar «quizás»</button>
+        </div>
       </section>
 
       <div class="nav-row">

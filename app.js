@@ -93,7 +93,8 @@ function exampleState() {
     rooms,
     cellRoom,
     furniture,
-    placements: {},   // "r,c" -> letra
+    placements: {},   // "r,c" -> letra (colocación confirmada, una por letra)
+    candidates: {},   // letra -> ["r,c", ...] (casillas donde "quizá" esté, varias por letra)
     manualX: [],      // ["r,c", ...]
     answer: '',
     step: 4,
@@ -108,6 +109,7 @@ function blankState() {
     cellRoom: {},
     furniture: {},
     placements: {},
+    candidates: {},
     manualX: [],
     answer: '',
     step: 1,
@@ -120,6 +122,7 @@ function blankState() {
 let state = loadState();
 let selectedChar = null;
 let xToolActive = false;
+let candidateToolActive = false;
 let selectedRoomId = state.rooms[0] ? state.rooms[0].id : null;
 let furnTool = 'obstaculo';
 let painting = false;
@@ -227,6 +230,32 @@ function placementCellOf(letter) {
   return null;
 }
 
+/** Letras marcadas como "quizá aquí" en una casilla dada. */
+function candidatesAt(k) {
+  const letters = [];
+  for (const [letter, cells] of Object.entries(state.candidates)) if (cells.includes(k)) letters.push(letter);
+  return letters;
+}
+
+function toggleCandidate(letter, k) {
+  const cells = state.candidates[letter] || [];
+  const idx = cells.indexOf(k);
+  if (idx >= 0) cells.splice(idx, 1); else cells.push(k);
+  if (cells.length) state.candidates[letter] = cells; else delete state.candidates[letter];
+}
+
+/** Al confirmar una letra en una casilla, deja de tener sentido como "quizá" en cualquier sitio. */
+function resolveCandidatesFor(letter, k) {
+  delete state.candidates[letter];
+  for (const other of Object.keys(state.candidates)) {
+    const idx = state.candidates[other].indexOf(k);
+    if (idx >= 0) {
+      state.candidates[other].splice(idx, 1);
+      if (!state.candidates[other].length) delete state.candidates[other];
+    }
+  }
+}
+
 /* ------------------------------------------------------------
  * Render del tablero
  * ------------------------------------------------------------ */
@@ -305,6 +334,7 @@ function renderBoard() {
 
       if (playMode) {
         const letter = state.placements[k];
+        const cands = letter ? [] : candidatesAt(k);
         if (letter && letters.includes(letter)) {
           const token = document.createElement('div');
           token.className = 'token' + (conflicts.has(k) ? ' conflict' : '');
@@ -312,6 +342,17 @@ function renderBoard() {
           token.textContent = letter;
           cell.appendChild(token);
           cell.classList.add('has-token');
+        } else if (cands.length) {
+          const wrap = document.createElement('div');
+          wrap.className = 'candidates';
+          for (const cl of cands) {
+            const badge = document.createElement('span');
+            badge.className = 'candidate-badge';
+            badge.style.background = charColor(cl, letters.indexOf(cl));
+            badge.textContent = cl;
+            wrap.appendChild(badge);
+          }
+          cell.appendChild(wrap);
         } else if (manualX.has(k)) {
           const x = document.createElement('span');
           x.className = 'xmark manual';
@@ -414,6 +455,7 @@ function renderCharChips() {
   const letters = charactersFor(charCount());
   letters.forEach((letter, i) => {
     const placed = placementCellOf(letter);
+    const candCount = (state.candidates[letter] || []).length;
     const chip = document.createElement('button');
     chip.className = 'chip'
       + (selectedChar === letter ? ' selected' : '')
@@ -425,6 +467,12 @@ function renderCharChips() {
     chip.appendChild(dot);
     if (letter === 'V') chip.appendChild(document.createTextNode('☠'));
     if (placed) chip.appendChild(document.createTextNode('✔'));
+    else if (candCount) {
+      const badge = document.createElement('span');
+      badge.className = 'cand-count';
+      badge.textContent = `✏️${candCount}`;
+      chip.appendChild(badge);
+    }
     chip.title = letter === 'V' ? 'Víctima' : `Personaje ${letter}`;
     chip.addEventListener('click', () => {
       selectedChar = selectedChar === letter ? null : letter;
@@ -435,6 +483,7 @@ function renderCharChips() {
     wrap.appendChild(chip);
   });
   $('#btn-xtool').classList.toggle('selected', xToolActive);
+  $('#btn-candidate-tool').classList.toggle('selected', candidateToolActive);
 }
 
 function renderPlayStatus() {
@@ -449,8 +498,10 @@ function renderPlayStatus() {
     el.className = 'status ok';
     el.textContent = '🎉 ¡Todos colocados y sin conflictos!';
   } else {
+    const candCells = new Set(Object.values(state.candidates).flat()).size;
     el.className = 'status';
-    el.textContent = `${placed} de ${letters.length} personajes colocados.`;
+    el.textContent = `${placed} de ${letters.length} personajes colocados.`
+      + (candCells ? ` ${candCells} casillas marcadas como «quizá».` : '');
   }
 }
 
@@ -484,6 +535,14 @@ function handlePlayClick(r, c, cell) {
     saveState(); renderBoard();
     return;
   }
+  if (candidateToolActive) {
+    if (!selectedChar) { flashCell(cell); return; }
+    if (state.placements[k]) { flashCell(cell); return; }
+    if (isObstacle(r, c)) { flashCell(cell); return; }
+    toggleCandidate(selectedChar, k);
+    saveState(); renderCharChips(); renderPlayStatus(); renderBoard();
+    return;
+  }
   if (selectedChar) {
     if (state.placements[k] === selectedChar) {
       delete state.placements[k];
@@ -492,6 +551,7 @@ function handlePlayClick(r, c, cell) {
       const prev = placementCellOf(selectedChar);
       if (prev) delete state.placements[prev];
       state.placements[k] = selectedChar;
+      resolveCandidatesFor(selectedChar, k);
     }
     saveState(); renderCharChips(); renderPlayStatus(); renderBoard();
     return;
@@ -567,6 +627,11 @@ function pruneOutOfBounds() {
   const letters = charactersFor(charCount());
   for (const [k, v] of Object.entries(state.placements)) if (!letters.includes(v)) delete state.placements[k];
   state.manualX = state.manualX.filter(inBounds);
+  for (const letter of Object.keys(state.candidates)) {
+    if (!letters.includes(letter)) { delete state.candidates[letter]; continue; }
+    const cells = state.candidates[letter].filter(inBounds);
+    if (cells.length) state.candidates[letter] = cells; else delete state.candidates[letter];
+  }
 }
 
 function setRows(rows) {
@@ -622,7 +687,13 @@ function setupControls() {
 
   $('#btn-xtool').addEventListener('click', () => {
     xToolActive = !xToolActive;
-    if (xToolActive) selectedChar = null;
+    if (xToolActive) { selectedChar = null; candidateToolActive = false; }
+    renderCharChips();
+  });
+
+  $('#btn-candidate-tool').addEventListener('click', () => {
+    candidateToolActive = !candidateToolActive;
+    if (candidateToolActive) xToolActive = false;
     renderCharChips();
   });
 
@@ -634,11 +705,19 @@ function setupControls() {
     renderCharChips(); renderPlayStatus(); renderBoard();
   });
 
+  $('#btn-clear-candidates').addEventListener('click', async () => {
+    if (!(await askConfirm('¿Quitar todas las casillas marcadas como «quizá»?'))) return;
+    state.candidates = {};
+    saveState();
+    renderCharChips(); renderPlayStatus(); renderBoard();
+  });
+
   $('#btn-new').addEventListener('click', async () => {
     if (!(await askConfirm('¿Empezar un mapa nuevo desde cero? Se borrará el actual.'))) return;
     state = blankState();
     selectedChar = null;
     xToolActive = false;
+    candidateToolActive = false;
     selectedRoomId = null;
     furnTool = 'obstaculo';
     saveState();
