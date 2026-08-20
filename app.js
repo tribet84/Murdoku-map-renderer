@@ -237,8 +237,12 @@ function isObstacle(r, c) {
   return state.furniture[key(r, c)] === 'obstaculo';
 }
 
+/** Vecina válida para fusionar muebles: mismo tipo, dentro del mapa y sin pared entre medias. */
 function furnitureNeighbor(r, c, dr, dc, type) {
-  return state.furniture[key(r + dr, c + dc)] === type;
+  const nr = r + dr, nc = c + dc;
+  if (nr < 0 || nc < 0 || nr >= state.rows || nc >= state.cols) return false;
+  if (roomOf(r, c) !== roomOf(nr, nc)) return false;
+  return state.furniture[key(nr, nc)] === type;
 }
 
 /**
