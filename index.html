@@ -72,6 +72,7 @@
 
       <!-- Paso 4: resolver -->
       <section id="step-4" class="step-panel" hidden>
+        <div id="timer">⏱️ 00:00</div>
         <p class="hint">Toca una letra y luego su casilla para confirmarla: su fila y su columna se tachan solas. Con <strong>«¿Quizá aquí?»</strong> activo puedes marcar varias casillas posibles para la misma letra, y varias letras en la misma casilla.</p>
         <div id="char-chips"></div>
         <div class="tool-row">
@@ -93,7 +94,12 @@
 
     <section id="board-wrap">
       <div id="board-frame">
-        <div id="board"></div>
+        <div id="board-grid">
+          <div class="corner-spacer"></div>
+          <div id="col-headers"></div>
+          <div id="row-headers"></div>
+          <div id="board"></div>
+        </div>
       </div>
       <div id="answer">
         <label for="answer-input">El asesino es…</label>

@@ -106,6 +106,7 @@ function exampleState() {
     manualX: [],      // ["r,c", ...]
     answer: '',
     step: 4,
+    timerSeconds: 0,  // tiempo jugado en el paso de resolver
   };
 }
 
@@ -122,6 +123,7 @@ function blankState() {
     manualX: [],
     answer: '',
     step: 1,
+    timerSeconds: 0,
   };
 }
 
@@ -389,7 +391,29 @@ function labelCells() {
   return labels;
 }
 
+function renderCoordHeaders() {
+  const colHeaders = $('#col-headers');
+  const rowHeaders = $('#row-headers');
+  colHeaders.style.gridTemplateColumns = `repeat(${state.cols}, 1fr)`;
+  rowHeaders.style.gridTemplateRows = `repeat(${state.rows}, 1fr)`;
+  colHeaders.innerHTML = '';
+  rowHeaders.innerHTML = '';
+  for (let c = 0; c < state.cols; c++) {
+    const lab = document.createElement('div');
+    lab.className = 'coord-label';
+    lab.textContent = c + 1;
+    colHeaders.appendChild(lab);
+  }
+  for (let r = 0; r < state.rows; r++) {
+    const lab = document.createElement('div');
+    lab.className = 'coord-label';
+    lab.textContent = r + 1;
+    rowHeaders.appendChild(lab);
+  }
+}
+
 function renderBoard() {
+  renderCoordHeaders();
   const board = $('#board');
   const playMode = state.step === 4;
   board.innerHTML = '';
@@ -636,6 +660,36 @@ function renderCharChips() {
 }
 
 let wasSolved = false;
+let timerInterval = null;
+
+function formatTime(totalSeconds) {
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+function renderTimer() {
+  const el = $('#timer');
+  if (!el) return;
+  el.textContent = `⏱️ ${formatTime(state.timerSeconds)}`;
+  el.classList.toggle('done', wasSolved);
+}
+
+/** El cronómetro corre mientras se está resolviendo (paso 4) y el mapa no esté ya resuelto. */
+function updateTimerRunState() {
+  const shouldRun = state.step === 4 && !wasSolved;
+  if (shouldRun && !timerInterval) {
+    timerInterval = setInterval(() => {
+      state.timerSeconds++;
+      saveState();
+      renderTimer();
+    }, 1000);
+  } else if (!shouldRun && timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+  renderTimer();
+}
 
 function renderPlayStatus() {
   const el = $('#play-status');
@@ -657,6 +711,7 @@ function renderPlayStatus() {
   }
   if (solved && !wasSolved) launchConfetti();
   wasSolved = solved;
+  updateTimerRunState();
 }
 
 /** Lluvia de confeti al completar el mapa. Respeta prefers-reduced-motion. */

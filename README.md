@@ -18,15 +18,19 @@ Un asistente en 4 pasos:
    pistas del libro) y **ventanas** en las paredes (toca cerca del borde de la casilla,
    en el lado donde va). Dos camas o dos alfombras contiguas se dibujan unidas, como una
    sola pieza.
-4. **Resolver** — toca una letra y su casilla para confirmarla: su fila y su columna se
-   tachan solas con ✕. Los conflictos (dos letras en la misma fila/columna o alguien
-   sobre un obstáculo) se marcan en rojo. Con **«¿Quizá aquí?»** activo puedes marcar
-   varias casillas posibles para la misma letra —y varias letras en la misma casilla—
-   sin que cuenten como confirmadas ni disparen el tachado automático; al confirmar una
-   letra en una casilla, sus «quizás» se limpian solos. Tachar una casilla a mano también
-   quita cualquier «quizá» que hubiera en ella. Cuando todos los personajes (incluida la
-   víctima) están colocados sin conflictos, salta un confeti — y puedes apuntar la
-   respuesta en *«El asesino es…»*.
+4. **Resolver** — un cronómetro ⏱️ empieza a contar en cuanto llegas a este paso, se
+   pausa si te vas a otro paso y se congela al terminar. Toca una letra y su casilla
+   para confirmarla: su fila y su columna se tachan solas con ✕. Los conflictos (dos
+   letras en la misma fila/columna o alguien sobre un obstáculo) se marcan en rojo. Con
+   **«¿Quizá aquí?»** activo puedes marcar varias casillas posibles para la misma letra
+   —y varias letras en la misma casilla— sin que cuenten como confirmadas ni disparen el
+   tachado automático; al confirmar una letra en una casilla, sus «quizás» se limpian
+   solos. Tachar una casilla a mano también quita cualquier «quizá» que hubiera en ella.
+   Cuando todos los personajes (incluida la víctima) están colocados sin conflictos,
+   salta un confeti — y puedes apuntar la respuesta en *«El asesino es…»*.
+
+El mapa lleva numeradas las filas y columnas (1, 2, 3…) en los bordes, para poder
+describir una casilla en voz alta sin ambigüedad.
 
 El botón **↩️ Deshacer** de la cabecera funciona en cualquier paso y revierte el último
 cambio: colocar o quitar una letra, un trazo entero de pintar habitación o mueble, tachar
