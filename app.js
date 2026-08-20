@@ -13,11 +13,10 @@ const ROOM_PALETTE = ['#8ec9e8', '#c5aee8', '#f5a8c0', '#ffcc80', '#a5d6a7', '#f
 const CHAR_PALETTE = ['#a1887f', '#f9a825', '#ad1457', '#78909c', '#7e57c2', '#ec407a', '#5d4037', '#00897b', '#8e24aa', '#039be5', '#7cb342', '#6d4c41', '#00acc1', '#f4511e'];
 const VICTIM_COLOR = '#37474f';
 
+// 'obstaculo', 'cama' y 'alfombra' se dibujan aparte (ver renderBoard);
+// aquí solo van los muebles con un simple icono centrado.
 const FURNITURE = {
   silla: { icon: '🪑' },
-  cama: { icon: '🛏️' },
-  alfombra: { icon: '🟫' },
-  obstaculo: { icon: '' },
 };
 
 const key = (r, c) => `${r},${c}`;
@@ -87,12 +86,21 @@ function exampleState() {
   put('obstaculo', [6, 4], [6, 5], [6, 6], [7, 4]);
   put('silla', [7, 8], [8, 5], [8, 6], [8, 8]);
 
+  const windows = {
+    [key(1, 8)]: ['e'],
+    [key(4, 8)]: ['e'],
+    [key(6, 8)]: ['e'],
+    [key(5, 0)]: ['w'],
+    [key(8, 0)]: ['w'],
+  };
+
   return {
     rows: 9,
     cols: 9,
     rooms,
     cellRoom,
     furniture,
+    windows,          // "r,c" -> ["n"|"s"|"e"|"w", ...]
     placements: {},   // "r,c" -> letra (colocación confirmada, una por letra)
     candidates: {},   // letra -> ["r,c", ...] (casillas donde "quizá" esté, varias por letra)
     manualX: [],      // ["r,c", ...]
@@ -108,6 +116,7 @@ function blankState() {
     rooms: [],
     cellRoom: {},
     furniture: {},
+    windows: {},
     placements: {},
     candidates: {},
     manualX: [],
@@ -228,6 +237,56 @@ function isObstacle(r, c) {
   return state.furniture[key(r, c)] === 'obstaculo';
 }
 
+function furnitureNeighbor(r, c, dr, dc, type) {
+  return state.furniture[key(r + dr, c + dc)] === type;
+}
+
+/**
+ * Empareja casillas contiguas del mismo mueble "de dos casillas" (camas) para
+ * dibujarlas como una sola pieza. Recorre en orden de fila/columna y empareja
+ * cada casilla libre con su vecina al este o, si no, al sur; lo que quede
+ * suelto se dibuja como pieza única.
+ */
+function computeBedPairs() {
+  const roles = {}; // "r,c" -> { role: 'head'|'foot'|'single', orientation: 'h'|'v' }
+  const claimed = new Set();
+  for (let r = 0; r < state.rows; r++) {
+    for (let c = 0; c < state.cols; c++) {
+      const k = key(r, c);
+      if (state.furniture[k] !== 'cama' || claimed.has(k)) continue;
+      const eastKey = key(r, c + 1);
+      const southKey = key(r + 1, c);
+      if (furnitureNeighbor(r, c, 0, 1, 'cama') && !claimed.has(eastKey)) {
+        roles[k] = { role: 'head', orientation: 'h' };
+        roles[eastKey] = { role: 'foot', orientation: 'h' };
+        claimed.add(k); claimed.add(eastKey);
+      } else if (furnitureNeighbor(r, c, 1, 0, 'cama') && !claimed.has(southKey)) {
+        roles[k] = { role: 'head', orientation: 'v' };
+        roles[southKey] = { role: 'foot', orientation: 'v' };
+        claimed.add(k); claimed.add(southKey);
+      } else {
+        roles[k] = { role: 'single', orientation: 'h' };
+        claimed.add(k);
+      }
+    }
+  }
+  return roles;
+}
+
+function toggleWindow(k, side) {
+  const arr = state.windows[k] || [];
+  const idx = arr.indexOf(side);
+  if (idx >= 0) arr.splice(idx, 1); else arr.push(side);
+  if (arr.length) state.windows[k] = arr; else delete state.windows[k];
+}
+
+/** Lado de la casilla más cercano a un punto de pantalla (para colocar ventanas). */
+function nearestSide(rect, x, y) {
+  const relX = x - rect.left, relY = y - rect.top;
+  const dists = { n: relY, s: rect.height - relY, w: relX, e: rect.width - relX };
+  return Object.entries(dists).sort((a, b) => a[1] - b[1])[0][0];
+}
+
 /** Casillas tachadas automáticamente por las filas/columnas de los colocados. */
 function computeAutoX() {
   const auto = new Set();
@@ -294,6 +353,16 @@ function resolveCandidatesFor(letter, k) {
   }
 }
 
+/** Quita cualquier "quizá" marcado en una casilla concreta (p. ej. al tacharla a mano). */
+function clearCandidatesAt(k) {
+  for (const letter of Object.keys(state.candidates)) {
+    const idx = state.candidates[letter].indexOf(k);
+    if (idx < 0) continue;
+    state.candidates[letter].splice(idx, 1);
+    if (!state.candidates[letter].length) delete state.candidates[letter];
+  }
+}
+
 /* ------------------------------------------------------------
  * Render del tablero
  * ------------------------------------------------------------ */
@@ -328,6 +397,7 @@ function renderBoard() {
   const labels = labelCells();
   const roomById = Object.fromEntries(state.rooms.map((r) => [r.id, r]));
   const letters = charactersFor(charCount());
+  const bedRoles = computeBedPairs();
 
   for (let r = 0; r < state.rows; r++) {
     for (let c = 0; c < state.cols; c++) {
@@ -355,6 +425,13 @@ function renderBoard() {
         }
       }
 
+      // Ventanas
+      for (const side of state.windows[k] || []) {
+        const w = document.createElement('div');
+        w.className = `window ${side}`;
+        cell.appendChild(w);
+      }
+
       // Mueble
       const furn = state.furniture[k];
       if (furn === 'obstaculo') {
@@ -363,6 +440,30 @@ function renderBoard() {
         x.className = 'xmark obstacle-x';
         x.textContent = '✕';
         cell.appendChild(x);
+      } else if (furn === 'cama') {
+        const { role, orientation } = bedRoles[k];
+        const bed = document.createElement('div');
+        bed.className = `bed bed-${role}${role !== 'single' ? `-${orientation}` : ''}`;
+        if (role !== 'foot') {
+          const pillow = document.createElement('div');
+          pillow.className = `pillow pillow-${orientation}`;
+          bed.appendChild(pillow);
+        }
+        cell.appendChild(bed);
+      } else if (furn === 'alfombra') {
+        const n = furnitureNeighbor(r, c, -1, 0, 'alfombra');
+        const s = furnitureNeighbor(r, c, 1, 0, 'alfombra');
+        const w2 = furnitureNeighbor(r, c, 0, -1, 'alfombra');
+        const e = furnitureNeighbor(r, c, 0, 1, 'alfombra');
+        const rug = document.createElement('div');
+        rug.className = 'rug'
+          + (n ? ' rug-n' : '') + (s ? ' rug-s' : '')
+          + (w2 ? ' rug-w' : '') + (e ? ' rug-e' : '');
+        rug.style.borderTopLeftRadius = (!n && !w2) ? '7px' : '0';
+        rug.style.borderTopRightRadius = (!n && !e) ? '7px' : '0';
+        rug.style.borderBottomLeftRadius = (!s && !w2) ? '7px' : '0';
+        rug.style.borderBottomRightRadius = (!s && !e) ? '7px' : '0';
+        cell.appendChild(rug);
       } else if (furn && FURNITURE[furn]) {
         const span = document.createElement('span');
         span.className = 'furn';
@@ -530,15 +631,18 @@ function renderCharChips() {
   $('#btn-candidate-tool').classList.toggle('selected', candidateToolActive);
 }
 
+let wasSolved = false;
+
 function renderPlayStatus() {
   const el = $('#play-status');
   const letters = charactersFor(charCount());
   const placed = Object.values(state.placements).filter((v) => letters.includes(v)).length;
   const conflicts = computeConflicts();
+  const solved = conflicts.size === 0 && placed === letters.length && letters.length > 0;
   if (conflicts.size > 0) {
     el.className = 'status bad';
     el.textContent = `⚠️ Hay ${conflicts.size} casillas en conflicto (misma fila/columna o sobre un obstáculo).`;
-  } else if (placed === letters.length) {
+  } else if (solved) {
     el.className = 'status ok';
     el.textContent = '🎉 ¡Todos colocados y sin conflictos!';
   } else {
@@ -547,6 +651,58 @@ function renderPlayStatus() {
     el.textContent = `${placed} de ${letters.length} personajes colocados.`
       + (candCells ? ` ${candCells} casillas marcadas como «quizá».` : '');
   }
+  if (solved && !wasSolved) launchConfetti();
+  wasSolved = solved;
+}
+
+/** Lluvia de confeti al completar el mapa. Respeta prefers-reduced-motion. */
+function launchConfetti() {
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  const canvas = document.createElement('canvas');
+  canvas.className = 'confetti-canvas';
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  document.body.appendChild(canvas);
+  const ctx = canvas.getContext('2d');
+
+  const colors = [...CHAR_PALETTE, VICTIM_COLOR];
+  const pieces = Array.from({ length: 140 }, () => ({
+    x: Math.random() * canvas.width,
+    y: -20 - Math.random() * canvas.height * 0.4,
+    w: 6 + Math.random() * 5,
+    h: 9 + Math.random() * 6,
+    color: colors[Math.floor(Math.random() * colors.length)],
+    vy: 2.5 + Math.random() * 2.5,
+    vx: -1.5 + Math.random() * 3,
+    rot: Math.random() * Math.PI * 2,
+    vrot: -0.2 + Math.random() * 0.4,
+  }));
+
+  const durationMs = 3200;
+  const start = performance.now();
+
+  function frame(now) {
+    const t = now - start;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (const p of pieces) {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.rot += p.vrot;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      ctx.restore();
+    }
+    if (t < durationMs) {
+      requestAnimationFrame(frame);
+    } else {
+      canvas.remove();
+    }
+  }
+  requestAnimationFrame(frame);
 }
 
 function renderAll() {
@@ -575,9 +731,13 @@ function handlePlayClick(r, c, cell) {
     if (state.placements[k]) { flashCell(cell); return; }
     pushUndoOnce();
     const idx = state.manualX.indexOf(k);
-    if (idx >= 0) state.manualX.splice(idx, 1);
-    else state.manualX.push(k);
-    saveState(); renderBoard();
+    if (idx >= 0) {
+      state.manualX.splice(idx, 1);
+    } else {
+      state.manualX.push(k);
+      clearCandidatesAt(k);
+    }
+    saveState(); renderCharChips(); renderPlayStatus(); renderBoard();
     return;
   }
   if (candidateToolActive) {
@@ -618,10 +778,13 @@ function applyEditAt(r, c) {
     pushUndoOnce();
     state.cellRoom[k] = selectedRoomId;
   } else if (state.step === 3) {
-    if (furnTool === 'borrar') {
-      if (!state.furniture[k]) return;
+    if (furnTool === 'ventana') {
+      return; // las ventanas se colocan aparte, con el toque exacto sobre el borde
+    } else if (furnTool === 'borrar') {
+      if (!state.furniture[k] && !state.windows[k]) return;
       pushUndoOnce();
       delete state.furniture[k];
+      delete state.windows[k];
     } else {
       if (state.furniture[k] === furnTool) return;
       pushUndoOnce();
@@ -651,6 +814,14 @@ function setupBoardEvents() {
     const r = +cell.dataset.r, c = +cell.dataset.c;
     if (state.step === 4) {
       handlePlayClick(r, c, cell);
+    } else if (state.step === 3 && furnTool === 'ventana') {
+      // Las ventanas van al borde más cercano al toque, y solo con un toque directo.
+      ev.preventDefault();
+      const side = nearestSide(cell.getBoundingClientRect(), ev.clientX, ev.clientY);
+      pushUndoOnce();
+      toggleWindow(key(r, c), side);
+      saveState();
+      renderBoard();
     } else {
       painting = true;
       lastPaintedKey = key(r, c);
@@ -689,7 +860,7 @@ function pruneOutOfBounds() {
     const [r, c] = k.split(',').map(Number);
     return r < state.rows && c < state.cols;
   };
-  for (const dict of [state.cellRoom, state.furniture, state.placements]) {
+  for (const dict of [state.cellRoom, state.furniture, state.windows, state.placements]) {
     for (const k of Object.keys(dict)) if (!inBounds(k)) delete dict[k];
   }
   const letters = charactersFor(charCount());
