@@ -15,8 +15,16 @@ const VICTIM_COLOR = '#37474f';
 
 // 'obstaculo' y 'cama' se dibujan aparte, y las alfombras son su propia capa
 // (state.rugs); aquí solo van los muebles con un simple icono centrado.
+/** Butaca vista desde arriba (respaldo, dos brazos y asiento), como en el libro. */
+const CHAIR_SVG = `<svg viewBox="0 0 24 24" class="chair-svg" aria-hidden="true">
+  <rect class="chair-back" x="3.2" y="2.2" width="17.6" height="6.4" rx="3.1"/>
+  <rect class="chair-arm" x="2" y="6.6" width="4.6" height="14.6" rx="2.3"/>
+  <rect class="chair-arm" x="17.4" y="6.6" width="4.6" height="14.6" rx="2.3"/>
+  <rect class="chair-seat" x="5.6" y="8.2" width="12.8" height="12.9" rx="2.8"/>
+</svg>`;
+
 const FURNITURE = {
-  silla: { icon: '🪑' },
+  silla: { svg: CHAIR_SVG },
 };
 
 const key = (r, c) => `${r},${c}`;
@@ -532,7 +540,7 @@ function renderBoard() {
       } else if (furn && FURNITURE[furn]) {
         const span = document.createElement('span');
         span.className = 'furn';
-        span.textContent = FURNITURE[furn].icon;
+        span.innerHTML = FURNITURE[furn].svg; // marcado propio y estático
         cell.appendChild(span);
       }
 

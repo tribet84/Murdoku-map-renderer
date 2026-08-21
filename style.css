@@ -11,6 +11,8 @@
   --bed-color: #6fa3d8;
   --pillow-color: #fdf6e9;
   --rug-color: #b5573f;
+  --chair-seat: #f6e7c8;
+  --chair-frame: #e3caa0;
 }
 
 * { box-sizing: border-box; }
@@ -372,6 +374,28 @@ main {
   line-height: 1;
   z-index: 1;
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.3));
+}
+
+/* La butaca se dimensiona en em, así que sigue el font-size de .furn
+   (también cuando se encoge a la esquina de la casilla). */
+.chair-svg {
+  display: block;
+  width: 1.75em;
+  height: 1.75em;
+}
+.chair-svg rect {
+  stroke: var(--ink);
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+}
+.chair-back, .chair-arm { fill: var(--chair-frame); }
+.chair-seat { fill: var(--chair-seat); }
+
+/* La misma butaca, dentro del botón de la herramienta */
+.chip-furn {
+  font-size: 0.8rem;
+  flex-shrink: 0;
+  filter: none;
 }
 .cell.has-token .furn,
 .cell.has-candidates .furn {
