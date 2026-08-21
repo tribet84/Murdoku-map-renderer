@@ -360,7 +360,13 @@ main {
 .wall.e { right: -2px; top: -2px; bottom: -2px; width: 4px; }
 
 /* Muebles */
-.cell.obstacle { background-image: linear-gradient(rgba(90, 60, 75, 0.55), rgba(90, 60, 75, 0.55)); }
+/* Semitransparente a propósito: si hay una alfombra debajo, se sigue viendo. */
+.obstacle-fill {
+  position: absolute;
+  inset: 0;
+  background: rgba(90, 60, 75, 0.55);
+  z-index: 2;
+}
 .furn {
   font-size: clamp(14px, 3.2vw, 26px);
   line-height: 1;

@@ -16,8 +16,10 @@ Un asistente en 4 pasos:
 3. **Muebles** — coloca **obstáculos** (tachan su casilla: ahí no puede haber nadie),
    **sillas**, **camas** y **alfombras** (en estas sí se puede estar, como dicen las
    pistas del libro) y **ventanas** en las paredes (toca cerca del borde de la casilla,
-   en el lado donde va). Dos camas o dos alfombras contiguas se dibujan unidas, como una
-   sola pieza.
+   en el lado donde va). Dos camas o dos alfombras contiguas de la misma habitación se
+   dibujan unidas, como una sola pieza. Las alfombras son una capa por debajo, así que
+   puedes poner un obstáculo (una planta, una mesa…) o una silla encima sin perderlas;
+   **Borrar** quita primero lo de encima y, si solo queda la alfombra, la alfombra.
 4. **Resolver** — un cronómetro ⏱️ empieza a contar en cuanto llegas a este paso, se
    pausa si te vas a otro paso y se congela al terminar. Toca una letra y su casilla
    para confirmarla: su fila y su columna se tachan solas con ✕. Los conflictos (dos

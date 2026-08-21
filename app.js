@@ -13,8 +13,8 @@ const ROOM_PALETTE = ['#8ec9e8', '#c5aee8', '#f5a8c0', '#ffcc80', '#a5d6a7', '#f
 const CHAR_PALETTE = ['#a1887f', '#f9a825', '#ad1457', '#78909c', '#7e57c2', '#ec407a', '#5d4037', '#00897b', '#8e24aa', '#039be5', '#7cb342', '#6d4c41', '#00acc1', '#f4511e'];
 const VICTIM_COLOR = '#37474f';
 
-// 'obstaculo', 'cama' y 'alfombra' se dibujan aparte (ver renderBoard);
-// aquí solo van los muebles con un simple icono centrado.
+// 'obstaculo' y 'cama' se dibujan aparte, y las alfombras son su propia capa
+// (state.rugs); aquí solo van los muebles con un simple icono centrado.
 const FURNITURE = {
   silla: { icon: '🪑' },
 };
@@ -101,6 +101,7 @@ function exampleState() {
     cellRoom,
     furniture,
     windows,          // "r,c" -> ["n"|"s"|"e"|"w", ...]
+    rugs: [],         // ["r,c", ...] capa aparte: una alfombra puede tener un mueble encima
     placements: {},   // "r,c" -> letra (colocación confirmada, una por letra)
     candidates: {},   // letra -> ["r,c", ...] (casillas donde "quizá" esté, varias por letra)
     manualX: [],      // ["r,c", ...]
@@ -118,6 +119,7 @@ function blankState() {
     cellRoom: {},
     furniture: {},
     windows: {},
+    rugs: [],
     placements: {},
     candidates: {},
     manualX: [],
@@ -171,13 +173,27 @@ function undo() {
   updateUndoButton();
 }
 
+/**
+ * Antes las alfombras vivían en `furniture` (una sola cosa por casilla). Ahora son
+ * una capa aparte, para poder poner un obstáculo o una planta encima de una alfombra.
+ */
+function migrateState(s) {
+  if (!Array.isArray(s.rugs)) s.rugs = [];
+  for (const [k, v] of Object.entries(s.furniture || {})) {
+    if (v !== 'alfombra') continue;
+    if (!s.rugs.includes(k)) s.rugs.push(k);
+    delete s.furniture[k];
+  }
+  return s;
+}
+
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const s = JSON.parse(raw);
       if (s && typeof s.rows === 'number' && typeof s.cols === 'number' && Array.isArray(s.rooms)) {
-        return { ...blankState(), ...s };
+        return migrateState({ ...blankState(), ...s });
       }
     }
   } catch (e) { /* estado corrupto o almacenamiento no disponible */ }
@@ -239,12 +255,27 @@ function isObstacle(r, c) {
   return state.furniture[key(r, c)] === 'obstaculo';
 }
 
-/** Vecina válida para fusionar muebles: mismo tipo, dentro del mapa y sin pared entre medias. */
-function furnitureNeighbor(r, c, dr, dc, type) {
+/** ¿La casilla vecina está en el mapa y en la misma habitación (sin pared entre medias)? */
+function sameRoomNeighbor(r, c, dr, dc) {
   const nr = r + dr, nc = c + dc;
   if (nr < 0 || nc < 0 || nr >= state.rows || nc >= state.cols) return false;
-  if (roomOf(r, c) !== roomOf(nr, nc)) return false;
-  return state.furniture[key(nr, nc)] === type;
+  return roomOf(r, c) === roomOf(nr, nc);
+}
+
+/** Vecina válida para fusionar muebles: mismo tipo, dentro del mapa y sin pared entre medias. */
+function furnitureNeighbor(r, c, dr, dc, type) {
+  if (!sameRoomNeighbor(r, c, dr, dc)) return false;
+  return state.furniture[key(r + dr, c + dc)] === type;
+}
+
+function hasRug(r, c) {
+  return state.rugs.includes(key(r, c));
+}
+
+/** Vecina válida para fusionar alfombras: también alfombra y sin pared entre medias. */
+function rugNeighbor(r, c, dr, dc) {
+  if (!sameRoomNeighbor(r, c, dr, dc)) return false;
+  return hasRug(r + dr, c + dc);
 }
 
 /**
@@ -460,10 +491,30 @@ function renderBoard() {
         cell.appendChild(w);
       }
 
-      // Mueble
+      // Alfombra: va por debajo, así que puede tener un mueble encima.
+      if (hasRug(r, c)) {
+        const n = rugNeighbor(r, c, -1, 0);
+        const s = rugNeighbor(r, c, 1, 0);
+        const w2 = rugNeighbor(r, c, 0, -1);
+        const e = rugNeighbor(r, c, 0, 1);
+        const rug = document.createElement('div');
+        rug.className = 'rug'
+          + (n ? ' rug-n' : '') + (s ? ' rug-s' : '')
+          + (w2 ? ' rug-w' : '') + (e ? ' rug-e' : '');
+        rug.style.borderTopLeftRadius = (!n && !w2) ? '7px' : '0';
+        rug.style.borderTopRightRadius = (!n && !e) ? '7px' : '0';
+        rug.style.borderBottomLeftRadius = (!s && !w2) ? '7px' : '0';
+        rug.style.borderBottomRightRadius = (!s && !e) ? '7px' : '0';
+        cell.appendChild(rug);
+      }
+
+      // Mueble (encima de la alfombra, si la hay)
       const furn = state.furniture[k];
       if (furn === 'obstaculo') {
         cell.classList.add('obstacle');
+        const fill = document.createElement('div');
+        fill.className = 'obstacle-fill';
+        cell.appendChild(fill);
         const x = document.createElement('span');
         x.className = 'xmark obstacle-x';
         x.textContent = '✕';
@@ -478,20 +529,6 @@ function renderBoard() {
           bed.appendChild(pillow);
         }
         cell.appendChild(bed);
-      } else if (furn === 'alfombra') {
-        const n = furnitureNeighbor(r, c, -1, 0, 'alfombra');
-        const s = furnitureNeighbor(r, c, 1, 0, 'alfombra');
-        const w2 = furnitureNeighbor(r, c, 0, -1, 'alfombra');
-        const e = furnitureNeighbor(r, c, 0, 1, 'alfombra');
-        const rug = document.createElement('div');
-        rug.className = 'rug'
-          + (n ? ' rug-n' : '') + (s ? ' rug-s' : '')
-          + (w2 ? ' rug-w' : '') + (e ? ' rug-e' : '');
-        rug.style.borderTopLeftRadius = (!n && !w2) ? '7px' : '0';
-        rug.style.borderTopRightRadius = (!n && !e) ? '7px' : '0';
-        rug.style.borderBottomLeftRadius = (!s && !w2) ? '7px' : '0';
-        rug.style.borderBottomRightRadius = (!s && !e) ? '7px' : '0';
-        cell.appendChild(rug);
       } else if (furn && FURNITURE[furn]) {
         const span = document.createElement('span');
         span.className = 'furn';
@@ -840,10 +877,21 @@ function applyEditAt(r, c) {
     if (furnTool === 'ventana') {
       return; // las ventanas se colocan aparte, con el toque exacto sobre el borde
     } else if (furnTool === 'borrar') {
-      if (!state.furniture[k] && !state.windows[k]) return;
+      // Quita primero lo de encima; si la casilla solo tiene alfombra, quita la alfombra.
+      if (state.furniture[k] || state.windows[k]) {
+        pushUndoOnce();
+        delete state.furniture[k];
+        delete state.windows[k];
+      } else if (hasRug(r, c)) {
+        pushUndoOnce();
+        state.rugs = state.rugs.filter((rk) => rk !== k);
+      } else {
+        return;
+      }
+    } else if (furnTool === 'alfombra') {
+      if (hasRug(r, c)) return;
       pushUndoOnce();
-      delete state.furniture[k];
-      delete state.windows[k];
+      state.rugs.push(k);
     } else {
       if (state.furniture[k] === furnTool) return;
       pushUndoOnce();
@@ -925,6 +973,7 @@ function pruneOutOfBounds() {
   const letters = charactersFor(charCount());
   for (const [k, v] of Object.entries(state.placements)) if (!letters.includes(v)) delete state.placements[k];
   state.manualX = state.manualX.filter(inBounds);
+  state.rugs = state.rugs.filter(inBounds);
   for (const letter of Object.keys(state.candidates)) {
     if (!letters.includes(letter)) { delete state.candidates[letter]; continue; }
     const cells = state.candidates[letter].filter(inBounds);
@@ -1071,3 +1120,4 @@ setupControls();
 setupBoardEvents();
 renderAll();
 updateUndoButton();
+saveState(); // normaliza en disco lo que venga de una versión anterior (ver migrateState)
