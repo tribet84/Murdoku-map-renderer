@@ -1,12 +1,13 @@
 /* Service worker de Murdoku: deja la app disponible sin conexión.
  * Estrategia: sirve lo cacheado al instante y lo refresca en segundo plano
  * (stale-while-revalidate), así una versión nueva llega en la siguiente carga. */
-const CACHE = 'murdoku-shell-v1';
+const CACHE = 'murdoku-shell-v2';
 const SHELL = [
   './',
   './index.html',
   './style.css',
   './app.js',
+  './daily.js',
   './manifest.webmanifest',
   './icons/icon-180.png',
   './icons/icon-192.png',

@@ -53,6 +53,24 @@ nuevo descarta lo que hubiera para rehacer.
 **🔁 Volver a jugar**, en el paso Resolver, deja el mapa intacto y pone la partida a cero
 en un toque: quita letras, «quizás», tachaduras y respuesta, y el cronómetro vuelve a 00:00.
 
+## 🗓️ Caso del día
+
+El botón **Caso del día** abre un caso nuevo cada día, el mismo para todo el mundo, sin
+servidor: el plano, los muebles, la solución y las pistas se generan a partir de la fecha.
+Cada sospechoso tiene una o dos pistas al estilo del libro («estaba junto a una planta»,
+«estaba en la misma habitación que D», «estaba delante de una ventana»…), la víctima
+siempre «estaba a solas con el asesino», y un resolutor garantiza que el caso tiene una
+única solución antes de dárselo a nadie.
+
+Se resuelve colocando a cada persona en su casilla. **Comprobar** te dice cuántas están bien
+sin decir cuáles. Al acertar todas salta el confeti, se muestra quién es el asesino y puedes
+**compartir** el resultado con tu tiempo, tu racha y una cuadrícula de emojis, como en Wordle.
+El enlace `…/#dia` lleva directamente al caso del día. Los casos, personajes y pistas son
+propios y se generan al vuelo: no salen del libro.
+
+Los obstáculos de tus propios mapas también pueden llevar tipo (**planta**, **mesa**,
+**estantería**) desde el paso Muebles, para que el plano se lea como el del libro.
+
 ## Varios mapas
 
 **📚 Mapas** abre tu biblioteca: un mapa por cada caso del libro, con nombre. Desde ahí

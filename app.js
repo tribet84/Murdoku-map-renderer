@@ -28,6 +28,29 @@ const FURNITURE = {
   silla: { svg: CHAIR_SVG },
 };
 
+/** Obstáculos: bloquean la casilla. Los que tienen tipo se dibujan y sirven para las pistas ("junto a una planta"). */
+const OBSTACLE_TYPES = new Set(['obstaculo', 'planta', 'mesa', 'estanteria']);
+const OBSTACLE_SVG = {
+  planta: `<svg viewBox="0 0 24 24" class="furn-svg" aria-hidden="true">
+    <path class="pot" d="M7 14h10l-1.6 7H8.6z"/>
+    <ellipse class="leaf" cx="8.2" cy="9.6" rx="2.3" ry="4.2" transform="rotate(-38 8.2 9.6)"/>
+    <ellipse class="leaf" cx="15.8" cy="9.6" rx="2.3" ry="4.2" transform="rotate(38 15.8 9.6)"/>
+    <ellipse class="leaf" cx="12" cy="7.6" rx="2.6" ry="5.2"/>
+  </svg>`,
+  mesa: `<svg viewBox="0 0 24 24" class="furn-svg" aria-hidden="true">
+    <rect class="wood" x="2.5" y="5" width="19" height="14" rx="3"/>
+    <rect class="wood-light" x="5.5" y="8" width="13" height="8" rx="1.6"/>
+  </svg>`,
+  estanteria: `<svg viewBox="0 0 24 24" class="furn-svg" aria-hidden="true">
+    <rect class="wood" x="2.5" y="6" width="19" height="12" rx="1.6"/>
+    <rect class="book b1" x="4.6" y="8.2" width="3" height="7.6"/>
+    <rect class="book b2" x="8.2" y="8.2" width="2.4" height="7.6"/>
+    <rect class="book b3" x="11.2" y="8.2" width="3.4" height="7.6"/>
+    <rect class="book b4" x="15.2" y="8.2" width="1.9" height="7.6"/>
+    <rect class="book b5" x="17.7" y="8.2" width="2.2" height="7.6"/>
+  </svg>`,
+};
+
 const key = (r, c) => `${r},${c}`;
 
 /**
@@ -222,8 +245,9 @@ function saveLibrary() {
   } catch (e) { /* sin persistencia */ }
 }
 
-/** Guarda el mapa abierto dentro de la biblioteca. */
+/** Guarda el mapa abierto dentro de la biblioteca (o el caso del día, si es el que está abierto). */
 function saveState() {
+  if (dailyMode) { daily.state = state; saveDaily(); return; }
   const m = currentMap();
   m.state = state;
   m.updatedAt = Date.now();
@@ -299,6 +323,11 @@ function clearHistory() {
  * ------------------------------------------------------------ */
 function openMap(id) {
   if (!library.maps.some((m) => m.id === id)) return;
+  if (dailyMode) {
+    dailyMode = false;
+    document.body.classList.remove('daily');
+    if (location.hash === '#dia') history.replaceState(null, '', location.pathname + location.search);
+  }
   library.currentId = id;
   state = currentMap().state;
   selectedChar = null;
@@ -337,6 +366,210 @@ function relativeTime(ts) {
   const days = Math.round(hours / 24);
   if (days < 30) return `hace ${days} d`;
   return new Date(ts).toLocaleDateString('es-ES');
+}
+
+/* ------------------------------------------------------------
+ * Caso del día: un caso generado a partir de la fecha (ver daily.js),
+ * igual para todo el mundo, con pistas, comprobación y resultado
+ * compartible. Vive aparte de la biblioteca de mapas.
+ * ------------------------------------------------------------ */
+const DAILY_KEY = 'murdoku-daily-v1';
+const DAILY_STATS_KEY = 'murdoku-daily-stats-v1';
+const SITE_URL = 'https://tribet84.github.io/Murdoku-map-renderer/';
+let dailyMode = false;
+let daily = null; // { date, number, puzzle, state, checks, solvedSeconds }
+
+function loadJSON(k, fallback) {
+  try { const raw = localStorage.getItem(k); return raw ? JSON.parse(raw) : fallback; } catch (e) { return fallback; }
+}
+function saveJSON(k, v) {
+  try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* sin persistencia */ }
+}
+function loadDailyStats() {
+  return loadJSON(DAILY_STATS_KEY, { played: 0, wins: 0, streak: 0, bestStreak: 0, lastWinDate: null });
+}
+
+function dailyStateFromPuzzle(p) {
+  return {
+    rows: p.rows, cols: p.cols, rooms: p.rooms, cellRoom: p.cellRoom, furniture: p.furniture,
+    windows: p.windows, rugs: p.rugs.slice(), placements: {}, candidates: {}, manualX: [],
+    answer: '', step: 4, timerSeconds: 0,
+  };
+}
+
+function loadDaily() {
+  const D = window.MurdokuDaily;
+  if (!D) return null;
+  const today = D.dateKey();
+  const saved = loadJSON(DAILY_KEY, null);
+  if (saved && saved.date === today && saved.puzzle && isValidState(saved.state)) {
+    saved.state = migrateState({ ...blankState(), ...saved.state });
+    return saved;
+  }
+  const puzzle = D.generate(today);
+  if (!puzzle) return null;
+  const stats = loadDailyStats();
+  stats.played += 1;
+  saveJSON(DAILY_STATS_KEY, stats);
+  return { date: today, number: D.puzzleNumber(today), puzzle, state: dailyStateFromPuzzle(puzzle), checks: 0, solvedSeconds: null };
+}
+
+function saveDaily() {
+  if (daily) saveJSON(DAILY_KEY, daily);
+}
+
+function enterDaily() {
+  const d = loadDaily();
+  if (!d) { askConfirm('No se ha podido preparar el caso de hoy. Prueba a recargar la página.'); return; }
+  daily = d;
+  dailyMode = true;
+  document.body.classList.add('daily');
+  state = daily.state;
+  state.step = 4;
+  selectedChar = null;
+  xToolActive = false;
+  candidateToolActive = false;
+  wasSolved = computeSolved(); // volver a un caso ya resuelto no relanza el confeti
+  clearHistory();
+  saveDaily();
+  if (location.hash !== '#dia') history.replaceState(null, '', '#dia');
+  renderAll();
+}
+
+function exitDaily() {
+  if (dailyMode) openMap(library.currentId);
+}
+
+function dailyCorrectCount() {
+  if (!daily) return 0;
+  return Object.entries(daily.puzzle.solution).filter(([L, k]) => state.placements[k] === L).length;
+}
+
+function dailySolved() {
+  return Boolean(daily) && dailyCorrectCount() === daily.puzzle.letters.length;
+}
+
+function recordDailyWin() {
+  const stats = loadDailyStats();
+  if (stats.lastWinDate === daily.date) return stats; // ya contado
+  const y = new Date(daily.date + 'T00:00:00');
+  y.setDate(y.getDate() - 1);
+  const yesterday = window.MurdokuDaily.dateKey(y);
+  stats.streak = stats.lastWinDate === yesterday ? stats.streak + 1 : 1;
+  stats.bestStreak = Math.max(stats.bestStreak, stats.streak);
+  stats.wins += 1;
+  stats.lastWinDate = daily.date;
+  saveJSON(DAILY_STATS_KEY, stats);
+  daily.solvedSeconds = state.timerSeconds;
+  saveDaily();
+  return stats;
+}
+
+function checksText(n) {
+  if (n === 0) return 'sin usar «Comprobar»';
+  return `${n} comprobaci${n === 1 ? 'ón' : 'ones'}`;
+}
+
+function dailyShareText() {
+  const p = daily.puzzle;
+  const squares = ['🟦', '🟪', '🟥', '🟧', '🟩', '🟨', '🟫', '⬜'];
+  const roomIdx = Object.fromEntries(p.rooms.map((r, i) => [r.id, i]));
+  const solAt = {};
+  for (const [L, k] of Object.entries(p.solution)) solAt[k] = L;
+  const grid = [];
+  for (let r = 0; r < p.rows; r++) {
+    let line = '';
+    for (let c = 0; c < p.cols; c++) {
+      const k = key(r, c);
+      if (solAt[k]) line += solAt[k] === 'V' ? '💀' : '🕵️';
+      else if (OBSTACLE_TYPES.has(p.furniture[k])) line += '⬛';
+      else line += squares[roomIdx[p.cellRoom[k]] % squares.length];
+    }
+    grid.push(line);
+  }
+  const stats = loadDailyStats();
+  const [y, m, d] = daily.date.split('-');
+  return [
+    `🔎 Caso del día #${daily.number} · ${d}/${m}/${y}`,
+    `⏱️ ${formatTime(daily.solvedSeconds ?? state.timerSeconds)} · ✅ ${checksText(daily.checks)} · 🔥 racha ${stats.streak}`,
+    ...grid,
+    SITE_URL + '#dia',
+  ].join('\n');
+}
+
+let dailyFeedbackFresh = false; // el aviso de «Comprobar» vale hasta el siguiente cambio en el tablero
+
+function showDailyFeedback(text, kind = '') {
+  const el = $('#daily-feedback');
+  if (!el) return;
+  el.hidden = false;
+  el.className = 'status' + (kind ? ` ${kind}` : '');
+  el.textContent = text;
+  dailyFeedbackFresh = true;
+}
+
+async function shareDaily() {
+  const text = dailyShareText();
+  try {
+    if (navigator.share) { await navigator.share({ text }); return; }
+    await navigator.clipboard.writeText(text);
+    showDailyFeedback('Resultado copiado. Pégalo donde quieras presumir.', 'ok');
+  } catch (e) {
+    showDailyFeedback('No se ha podido compartir desde aquí. Copia el texto del resultado a mano.', 'bad');
+  }
+}
+
+function checkDaily() {
+  if (!dailyMode) return;
+  const total = daily.puzzle.letters.length;
+  const placed = Object.keys(state.placements).length;
+  const ok = dailyCorrectCount();
+  daily.checks += 1;
+  saveDaily();
+  if (ok === total) showDailyFeedback('¡Todo en su sitio!', 'ok');
+  else if (placed < total) showDailyFeedback(`${ok} de ${placed} colocados están bien. Faltan ${total - placed} por colocar.`);
+  else showDailyFeedback(`${ok} de ${total} en su sitio. Sigue deduciendo.`, 'bad');
+  renderDaily();
+}
+
+function showDailyResult(stats) {
+  const p = daily.puzzle;
+  const roomName = (p.rooms.find((r) => r.id === p.cellRoom[p.solution.V]) || {}).name || 'su habitación';
+  $('#result-text').textContent =
+    `El asesino es ${p.murderer}: estaba a solas con la víctima en la habitación ${roomName}. `
+    + `Tiempo ${formatTime(daily.solvedSeconds ?? state.timerSeconds)}, ${checksText(daily.checks)}. `
+    + `Racha: ${stats.streak} (mejor: ${stats.bestStreak}). Casos resueltos: ${stats.wins}.`;
+  $('#result-grid').textContent = dailyShareText().split('\n').slice(2, -1).join('\n');
+  $('#dlg-result').showModal();
+}
+
+function renderDaily() {
+  document.body.classList.toggle('daily', dailyMode);
+  const card = $('#daily-card');
+  if (!card) return;
+  card.hidden = !dailyMode;
+  if (!dailyMode) return;
+  if (!dailyFeedbackFresh) $('#daily-feedback').hidden = true;
+  dailyFeedbackFresh = false;
+  const [y, m, d] = daily.date.split('-');
+  $('#daily-title').textContent = `🗓️ Caso del día #${daily.number} · ${d}/${m}/${y}`;
+  $('#daily-checks').textContent = daily.checks ? checksText(daily.checks) : '';
+  const ol = $('#clue-list');
+  ol.innerHTML = '';
+  const letters = daily.puzzle.letters;
+  for (const cc of daily.puzzle.clues) {
+    const li = document.createElement('li');
+    const dot = document.createElement('span');
+    dot.className = 'dot';
+    dot.style.background = charColor(cc.letter, letters.indexOf(cc.letter));
+    dot.textContent = cc.letter;
+    const txt = document.createElement('span');
+    txt.textContent = cc.lines.join(' ');
+    li.append(dot, txt);
+    if (placementCellOf(cc.letter)) li.classList.add('placed');
+    ol.appendChild(li);
+  }
+  $('#btn-share').hidden = !wasSolved;
 }
 
 /* ------------------------------------------------------------
@@ -385,7 +618,7 @@ function roomOf(r, c) {
 }
 
 function isObstacle(r, c) {
-  return state.furniture[key(r, c)] === 'obstaculo';
+  return OBSTACLE_TYPES.has(state.furniture[key(r, c)]);
 }
 
 /** ¿La casilla vecina está en el mapa y en la misma habitación (sin pared entre medias)? */
@@ -643,13 +876,20 @@ function renderBoard() {
 
       // Mueble (encima de la alfombra, si la hay)
       const furn = state.furniture[k];
-      if (furn === 'obstaculo') {
+      if (OBSTACLE_TYPES.has(furn)) {
         cell.classList.add('obstacle');
         const fill = document.createElement('div');
         fill.className = 'obstacle-fill';
         cell.appendChild(fill);
+        const typed = Boolean(OBSTACLE_SVG[furn]);
+        if (typed) {
+          const icon = document.createElement('span');
+          icon.className = 'furn obstacle-icon';
+          icon.innerHTML = OBSTACLE_SVG[furn]; // marcado propio y estático
+          cell.appendChild(icon);
+        }
         const x = document.createElement('span');
-        x.className = 'xmark obstacle-x';
+        x.className = 'xmark obstacle-x' + (typed ? ' typed' : '');
         x.textContent = '✕';
         cell.appendChild(x);
       } else if (furn === 'cama') {
@@ -786,10 +1026,19 @@ function renderRoomList() {
   }
 }
 
+let obstacleType = 'obstaculo'; // subtipo activo dentro de la herramienta «Obstáculo»
+
 function renderFurnTools() {
+  const obstacleFamily = OBSTACLE_TYPES.has(furnTool);
   $$('#furn-tools .tool-chip').forEach((btn) => {
-    btn.classList.toggle('selected', btn.dataset.furn === furnTool);
+    const isObstChip = btn.dataset.furn === 'obstaculo';
+    btn.classList.toggle('selected', isObstChip ? obstacleFamily : btn.dataset.furn === furnTool);
   });
+  const sub = $('#obstacle-types');
+  if (sub) {
+    sub.hidden = !obstacleFamily;
+    $$('#obstacle-types .subtype').forEach((b) => b.classList.toggle('selected', b.dataset.obst === furnTool));
+  }
 }
 
 function renderCharChips() {
@@ -861,8 +1110,9 @@ function updateTimerRunState() {
   renderTimer();
 }
 
-/** Todos los personajes colocados y sin conflictos. */
+/** Todos los personajes colocados y sin conflictos (en el caso del día: en su casilla correcta). */
 function computeSolved() {
+  if (dailyMode) return dailySolved();
   const letters = charactersFor(charCount());
   const placed = Object.values(state.placements).filter((v) => letters.includes(v)).length;
   return computeConflicts().size === 0 && placed === letters.length && letters.length > 0;
@@ -880,15 +1130,24 @@ function renderPlayStatus() {
   } else if (solved) {
     el.className = 'status ok';
     el.textContent = '🎉 ¡Todos colocados y sin conflictos!';
+  } else if (dailyMode && placed === letters.length) {
+    el.className = 'status bad';
+    el.textContent = 'Todos colocados, pero algo no cuadra. Pulsa «Comprobar» para ver cuántos están bien.';
   } else {
     const candCells = new Set(Object.values(state.candidates).flat()).size;
     el.className = 'status';
     el.textContent = `${placed} de ${letters.length} personajes colocados.`
       + (candCells ? ` ${candCells} casillas marcadas como «quizá».` : '');
   }
-  if (solved && !wasSolved) launchConfetti();
+  const justSolved = solved && !wasSolved;
+  if (justSolved) launchConfetti();
   wasSolved = solved;
+  if (justSolved && dailyMode) {
+    const stats = recordDailyWin();
+    setTimeout(() => showDailyResult(stats), 700);
+  }
   updateTimerRunState();
+  renderDaily();
 }
 
 /** Lluvia de confeti al completar el mapa. Respeta prefers-reduced-motion. */
@@ -943,7 +1202,7 @@ function launchConfetti() {
 
 function renderMapName() {
   const el = $('#map-name');
-  if (el) el.textContent = currentMap().name;
+  if (el) el.textContent = dailyMode ? `Caso del día #${daily.number}` : currentMap().name;
 }
 
 function renderMapsList() {
@@ -1167,6 +1426,7 @@ function setupBoardEvents() {
  * Controles
  * ------------------------------------------------------------ */
 function goToStep(step) {
+  if (dailyMode) return; // el caso del día no se edita
   state.step = Math.max(1, Math.min(4, step));
   saveState();
   renderAll();
@@ -1269,7 +1529,15 @@ function setupControls() {
 
   $$('#furn-tools .tool-chip').forEach((btn) => {
     btn.addEventListener('click', () => {
-      furnTool = btn.dataset.furn;
+      furnTool = btn.dataset.furn === 'obstaculo' ? obstacleType : btn.dataset.furn;
+      renderFurnTools();
+    });
+  });
+  $$('#obstacle-types .subtype').forEach((b) => {
+    if (OBSTACLE_SVG[b.dataset.obst]) b.innerHTML = OBSTACLE_SVG[b.dataset.obst]; // marcado propio
+    b.addEventListener('click', () => {
+      obstacleType = b.dataset.obst;
+      furnTool = obstacleType;
       renderFurnTools();
     });
   });
@@ -1294,9 +1562,17 @@ function setupControls() {
     state.manualX = [];
     state.answer = '';
     state.timerSeconds = 0;
+    if (dailyMode) { daily.checks = 0; daily.solvedSeconds = null; $('#daily-feedback').hidden = true; }
     saveState();
     renderAll();
   });
+
+  $('#btn-daily').addEventListener('click', enterDaily);
+  $('#btn-exit-daily').addEventListener('click', exitDaily);
+  $('#btn-check').addEventListener('click', checkDaily);
+  $('#btn-share').addEventListener('click', shareDaily);
+  $('#result-share').addEventListener('click', shareDaily);
+  $('#result-close').addEventListener('click', () => $('#dlg-result').close());
 
   $('#btn-clear-candidates').addEventListener('click', async () => {
     if (!(await askConfirm('¿Quitar todas las casillas marcadas como «quizá»?'))) return;
@@ -1342,3 +1618,6 @@ try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* ya migrado */ }
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
   navigator.serviceWorker.register('./sw.js').catch(() => { /* sin SW, la app funciona igual */ });
 }
+
+// Enlace directo al caso del día (es el que se comparte).
+if (location.hash === '#dia') enterDaily();
