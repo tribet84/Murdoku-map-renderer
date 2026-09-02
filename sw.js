@@ -1,7 +1,7 @@
-/* Service worker de Murdoku: deja la app disponible sin conexión.
+/* Service worker de Crimle: deja la app disponible sin conexión.
  * Estrategia: sirve lo cacheado al instante y lo refresca en segundo plano
  * (stale-while-revalidate), así una versión nueva llega en la siguiente carga. */
-const CACHE = 'murdoku-shell-v2';
+const CACHE = 'crimle-shell-v3';
 const SHELL = [
   './',
   './index.html',

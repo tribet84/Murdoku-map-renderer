@@ -1,7 +1,7 @@
 'use strict';
 
 /* ============================================================
- * Murdoku · mapa digital
+ * Crimle · un asesinato al día
  * Asistente en 4 pasos: tamaño → habitaciones → muebles → resolver.
  * ============================================================ */
 
@@ -231,7 +231,7 @@ function loadLibrary() {
     }
   } catch (e) { /* se ignora */ }
 
-  const entry = makeMapEntry('Ejemplo del libro', exampleState());
+  const entry = makeMapEntry('Casa de ejemplo', exampleState());
   return { currentId: entry.id, maps: [entry] };
 }
 
@@ -490,7 +490,7 @@ function dailyShareText() {
   const stats = loadDailyStats();
   const [y, m, d] = daily.date.split('-');
   return [
-    `🔎 Caso del día #${daily.number} · ${d}/${m}/${y}`,
+    `🔎 Crimle #${daily.number} · ${d}/${m}/${y}`,
     `⏱️ ${formatTime(daily.solvedSeconds ?? state.timerSeconds)} · ✅ ${checksText(daily.checks)} · 🔥 racha ${stats.streak}`,
     ...grid,
     SITE_URL + '#dia',
@@ -552,7 +552,7 @@ function renderDaily() {
   if (!dailyFeedbackFresh) $('#daily-feedback').hidden = true;
   dailyFeedbackFresh = false;
   const [y, m, d] = daily.date.split('-');
-  $('#daily-title').textContent = `🗓️ Caso del día #${daily.number} · ${d}/${m}/${y}`;
+  $('#daily-title').textContent = `🗓️ Crimle #${daily.number} · ${d}/${m}/${y}`;
   $('#daily-checks').textContent = daily.checks ? checksText(daily.checks) : '';
   const ol = $('#clue-list');
   ol.innerHTML = '';
@@ -1202,7 +1202,7 @@ function launchConfetti() {
 
 function renderMapName() {
   const el = $('#map-name');
-  if (el) el.textContent = dailyMode ? `Caso del día #${daily.number}` : currentMap().name;
+  if (el) el.textContent = dailyMode ? `Crimle #${daily.number} · caso del día` : currentMap().name;
 }
 
 function renderMapsList() {

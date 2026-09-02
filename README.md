@@ -1,18 +1,25 @@
-# 🔎 Murdoku · Mapa digital
+# 🔎 Crimle · Un asesinato al día
 
 **👉 Úsala aquí: https://tribet84.github.io/Murdoku-map-renderer/**
 
-Aplicación web **100% estática** para resolver los puzles *Murdoku* (los sudokus de asesinatos
-de los libros de Murdle) sin escribir en el libro. Dibujas el plano en un minuto, colocas a
-los personajes y la app tacha filas, columnas y muebles por ti. Gratis, sin cuenta, y una vez
-cargada funciona sin conexión.
+**Crimle** es un juego de deducción diario: cada día hay un nuevo caso, el mismo para todo el
+mundo, en el que hay que averiguar en qué casilla del plano estaba cada persona y quién se
+quedó a solas con la víctima. Al estilo de Wordle: se resuelve en unos minutos, se comparte el
+resultado con una cuadrícula de emojis y se lleva la racha.
 
-> Herramienta no oficial hecha por un aficionado. No tiene relación con el autor ni con la
-> editorial de Murdle, y no incluye ningún caso de los libros: el mapa de ejemplo es inventado.
+Además trae un **editor de mapas** para resolver los puzles de tipo «Murdoku» de los libros de
+Murdle sin escribir en el libro: dibujas el plano en un minuto, colocas a los personajes y la
+app tacha filas, columnas y muebles por ti. Todo **100% estático**, gratis, sin cuenta, y una
+vez cargada funciona sin conexión.
 
-*English: an unofficial companion web app for solving Murdle's "Murdoku" puzzles without
-writing in the book. Draw the floor plan, place the suspects, and the app crosses out rows,
-columns and furniture for you. Free, no account, works offline. Spanish UI.*
+> Crimle es un proyecto independiente hecho por un aficionado. El editor de mapas es compatible
+> con los libros de Murdle, con cuyo autor y editorial no tiene relación. Los casos del día se
+> generan al vuelo y son propios; no incluye ningún caso de los libros.
+
+*English: Crimle is a daily deduction game, Wordle-style: one new case a day, same for
+everyone, in which you work out which cell of the floor plan each person was in and who was
+alone with the victim. It also ships an editor to solve the "Murdoku" puzzles from the Murdle
+books without writing in them. Free, no account, works offline. Spanish UI.*
 
 ## Cómo funciona
 
@@ -76,8 +83,8 @@ Los obstáculos de tus propios mapas también pueden llevar tipo (**planta**, **
 **📚 Mapas** abre tu biblioteca: un mapa por cada caso del libro, con nombre. Desde ahí
 puedes crear uno nuevo, abrir otro, duplicarlo, renombrarlo o borrarlo. La cabecera muestra
 siempre qué mapa tienes abierto. Todo se guarda solo en el navegador (`localStorage`);
-la primera vez viene el mapa de ejemplo del libro (Baño, Cocina, Cuarto de invitados,
-Comedor, Dormitorio y Salón).
+la primera vez viene una casa de ejemplo inventada (Biblioteca, Sala de música, Invernadero,
+Cocina, Dormitorio y Recibidor) que enseña todos los elementos.
 
 ## Instalar en el móvil
 

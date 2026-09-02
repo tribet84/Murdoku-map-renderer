@@ -1,7 +1,7 @@
 {
-  "name": "Murdoku · Mapa digital",
-  "short_name": "Murdoku",
-  "description": "Tablero digital para resolver los puzles Murdoku sin escribir en el libro.",
+  "name": "Crimle · Un asesinato al día",
+  "short_name": "Crimle",
+  "description": "Un asesinato al día: deduce quién estaba en cada casilla. También dibuja los planos de tus libros de puzles.",
   "lang": "es",
   "start_url": "./",
   "scope": "./",
