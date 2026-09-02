@@ -57,10 +57,39 @@ header h1 {
 .icon-btn { padding: 6px 9px; line-height: 1; }
 .icon-btn.small { padding: 3px 7px; font-size: 0.9rem; border-width: 1.5px; }
 
-/* Caso del día */
-#btn-exit-daily { display: none; }
-body.daily #btn-exit-daily { display: inline-block; }
-body.daily #btn-daily, body.daily #stepper, body.daily .nav-row { display: none; }
+/* Dos secciones: caso del día (portada) y editor de mapas */
+.mode-tabs {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--paper);
+}
+.mode-tab {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  padding: 6px 12px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+.mode-tab:hover { background: rgba(255, 255, 255, 0.6); }
+.mode-tab.selected, .mode-tab.selected:hover { background: var(--ink); color: #fff; }
+.mode-intro {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #7a6570;
+  padding: 8px 10px;
+  border-left: 4px solid var(--accent);
+  background: #fff;
+  border-radius: 0 8px 8px 0;
+}
+.editor-cta { border-top: 1px dashed var(--line); padding-top: 8px; }
+.editor-cta a { color: var(--accent); font-weight: 700; }
+body.daily .editor-only, body:not(.daily) .daily-only { display: none !important; }
+body.daily #answer { display: none; }
 .daily-card {
   border: 2px solid var(--ink);
   border-radius: 12px;
@@ -765,4 +794,7 @@ footer a { color: inherit; }
 @media (max-width: 780px) {
   main { flex-direction: column-reverse; align-items: stretch; }
   #panel { width: 100%; }
+  /* Las pestañas de sección ocupan su propia línea bajo la marca */
+  .mode-tabs { order: 3; width: 100%; }
+  .mode-tab { flex: 1; text-align: center; }
 }

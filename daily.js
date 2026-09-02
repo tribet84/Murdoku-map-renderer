@@ -506,5 +506,5 @@
 
   const api = { generate, dateKey, puzzleNumber, countSolutions, makeWorld, OBSTACLES, DAILY_EPOCH };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
-  root.MurdokuDaily = api;
+  root.CrimleDaily = api;
 })(typeof window !== 'undefined' ? window : globalThis);

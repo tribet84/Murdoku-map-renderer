@@ -2,11 +2,35 @@
 
 /* ============================================================
  * Crimle · un asesinato al día
- * Asistente en 4 pasos: tamaño → habitaciones → muebles → resolver.
+ * Dos secciones, elegidas por la ruta (#dia / #editor):
+ *  - Caso del día (portada): un caso generado por fecha, igual para todos.
+ *  - Editor de mapas: asistente en 4 pasos (tamaño → habitaciones → muebles →
+ *    resolver) para dibujar y resolver los planos de los libros de puzles.
  * ============================================================ */
 
-const STORAGE_KEY = 'murdoku-state-v3';   // formato antiguo: un solo mapa (se migra al arrancar)
-const LIBRARY_KEY = 'murdoku-library-v4'; // formato actual: varios mapas con nombre
+const LIBRARY_KEY = 'crimle-library-v1';          // varios mapas con nombre
+const DAILY_KEY = 'crimle-daily-v1';              // el caso de hoy y su progreso
+const DAILY_STATS_KEY = 'crimle-daily-stats-v1';  // rachas y casos resueltos
+const STORAGE_KEY = 'murdoku-state-v3';           // formato antiguo: un solo mapa (se migra al arrancar)
+
+// La app se llamó Murdoku antes de ser Crimle: si hay datos con el nombre viejo, se
+// pasan al nuevo una sola vez para no perder mapas ni rachas.
+(function migrateStorageNames() {
+  const renames = [
+    ['murdoku-library-v4', LIBRARY_KEY],
+    ['murdoku-daily-v1', DAILY_KEY],
+    ['murdoku-daily-stats-v1', DAILY_STATS_KEY],
+  ];
+  for (const [oldKey, newKey] of renames) {
+    try {
+      const raw = localStorage.getItem(oldKey);
+      if (raw !== null) {
+        if (localStorage.getItem(newKey) === null) localStorage.setItem(newKey, raw);
+        localStorage.removeItem(oldKey);
+      }
+    } catch (e) { /* sin almacenamiento */ }
+  }
+})();
 const MIN_SIZE = 3;
 const MAX_SIZE = 15;
 
@@ -323,11 +347,9 @@ function clearHistory() {
  * ------------------------------------------------------------ */
 function openMap(id) {
   if (!library.maps.some((m) => m.id === id)) return;
-  if (dailyMode) {
-    dailyMode = false;
-    document.body.classList.remove('daily');
-    if (location.hash === '#dia') history.replaceState(null, '', location.pathname + location.search);
-  }
+  dailyMode = false;
+  document.body.classList.remove('daily');
+  if (location.hash !== '#editor') history.replaceState(null, '', '#editor');
   library.currentId = id;
   state = currentMap().state;
   selectedChar = null;
@@ -373,8 +395,8 @@ function relativeTime(ts) {
  * igual para todo el mundo, con pistas, comprobación y resultado
  * compartible. Vive aparte de la biblioteca de mapas.
  * ------------------------------------------------------------ */
-const DAILY_KEY = 'murdoku-daily-v1';
-const DAILY_STATS_KEY = 'murdoku-daily-stats-v1';
+// Dirección pública que va en el texto compartido. Cuando haya dominio propio, cambiar aquí
+// y en las etiquetas og:url / og:image de index.html.
 const SITE_URL = 'https://tribet84.github.io/Murdoku-map-renderer/';
 let dailyMode = false;
 let daily = null; // { date, number, puzzle, state, checks, solvedSeconds }
@@ -398,7 +420,7 @@ function dailyStateFromPuzzle(p) {
 }
 
 function loadDaily() {
-  const D = window.MurdokuDaily;
+  const D = window.CrimleDaily;
   if (!D) return null;
   const today = D.dateKey();
   const saved = loadJSON(DAILY_KEY, null);
@@ -420,7 +442,13 @@ function saveDaily() {
 
 function enterDaily() {
   const d = loadDaily();
-  if (!d) { askConfirm('No se ha podido preparar el caso de hoy. Prueba a recargar la página.'); return; }
+  if (!d) {
+    // Sin generador no hay caso: se queda en el editor, que funciona igual.
+    history.replaceState(null, '', '#editor');
+    renderAll();
+    askConfirm('No se ha podido preparar el caso de hoy. Prueba a recargar la página.');
+    return;
+  }
   daily = d;
   dailyMode = true;
   document.body.classList.add('daily');
@@ -436,8 +464,14 @@ function enterDaily() {
   renderAll();
 }
 
-function exitDaily() {
+function leaveDaily() {
   if (dailyMode) openMap(library.currentId);
+}
+
+/** Aplica la sección que marca la ruta: '#editor' abre el editor; cualquier otra, el caso del día (la portada). */
+function applyRoute() {
+  if (location.hash === '#editor') { leaveDaily(); return; }
+  if (!dailyMode) enterDaily();
 }
 
 function dailyCorrectCount() {
@@ -454,7 +488,7 @@ function recordDailyWin() {
   if (stats.lastWinDate === daily.date) return stats; // ya contado
   const y = new Date(daily.date + 'T00:00:00');
   y.setDate(y.getDate() - 1);
-  const yesterday = window.MurdokuDaily.dateKey(y);
+  const yesterday = window.CrimleDaily.dateKey(y);
   stats.streak = stats.lastWinDate === yesterday ? stats.streak + 1 : 1;
   stats.bestStreak = Math.max(stats.bestStreak, stats.streak);
   stats.wins += 1;
@@ -493,7 +527,7 @@ function dailyShareText() {
     `🔎 Crimle #${daily.number} · ${d}/${m}/${y}`,
     `⏱️ ${formatTime(daily.solvedSeconds ?? state.timerSeconds)} · ✅ ${checksText(daily.checks)} · 🔥 racha ${stats.streak}`,
     ...grid,
-    SITE_URL + '#dia',
+    SITE_URL,
   ].join('\n');
 }
 
@@ -1202,7 +1236,18 @@ function launchConfetti() {
 
 function renderMapName() {
   const el = $('#map-name');
-  if (el) el.textContent = dailyMode ? `Crimle #${daily.number} · caso del día` : currentMap().name;
+  if (el) {
+    if (dailyMode) {
+      const [y, m, d] = daily.date.split('-');
+      el.textContent = `Caso del día · #${daily.number} · ${d}/${m}/${y}`;
+    } else {
+      el.textContent = `Editor de mapas · ${currentMap().name}`;
+    }
+  }
+  const dailyTab = $('#btn-daily');
+  const editorTab = $('#btn-editor');
+  if (dailyTab) { dailyTab.classList.toggle('selected', dailyMode); dailyTab.setAttribute('aria-pressed', String(dailyMode)); }
+  if (editorTab) { editorTab.classList.toggle('selected', !dailyMode); editorTab.setAttribute('aria-pressed', String(!dailyMode)); }
 }
 
 function renderMapsList() {
@@ -1567,8 +1612,10 @@ function setupControls() {
     renderAll();
   });
 
-  $('#btn-daily').addEventListener('click', enterDaily);
-  $('#btn-exit-daily').addEventListener('click', exitDaily);
+  // Las dos secciones se eligen por la ruta, así el botón «atrás» del navegador también vuelve.
+  $('#btn-daily').addEventListener('click', () => { if (!dailyMode) location.hash = '#dia'; });
+  $('#btn-editor').addEventListener('click', () => { if (dailyMode) location.hash = '#editor'; });
+  window.addEventListener('hashchange', applyRoute);
   $('#btn-check').addEventListener('click', checkDaily);
   $('#btn-share').addEventListener('click', shareDaily);
   $('#result-share').addEventListener('click', shareDaily);
@@ -1609,15 +1656,13 @@ function setupControls() {
  * ------------------------------------------------------------ */
 setupControls();
 setupBoardEvents();
-renderAll();
-updateUndoButton();
-saveState(); // normaliza en disco lo que venga de una versión anterior (ver migrateState / loadLibrary)
+saveLibrary(); // normaliza en disco lo que venga de una versión anterior (ver migrateState / loadLibrary)
 try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* ya migrado */ }
+applyRoute();               // portada: el caso del día, salvo que la ruta pida el editor
+if (!dailyMode) renderAll(); // (enterDaily ya pinta todo)
+updateUndoButton();
 
 // PWA: instalable y disponible sin conexión. Solo tiene sentido servida por http(s).
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
   navigator.serviceWorker.register('./sw.js').catch(() => { /* sin SW, la app funciona igual */ });
 }
-
-// Enlace directo al caso del día (es el que se comparte).
-if (location.hash === '#dia') enterDaily();

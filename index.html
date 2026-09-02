@@ -35,18 +35,21 @@
       <h1>🔎 Crimle</h1>
       <span id="map-name" class="map-name"></span>
     </div>
+    <nav class="mode-tabs" aria-label="Sección">
+      <button id="btn-daily" class="mode-tab" aria-pressed="false">🗓️ Caso del día</button>
+      <button id="btn-editor" class="mode-tab" aria-pressed="false">✏️ Editor de mapas</button>
+    </nav>
     <div class="header-actions">
       <button id="btn-undo" class="icon-btn" disabled title="Deshacer" aria-label="Deshacer">↩️</button>
       <button id="btn-redo" class="icon-btn" disabled title="Rehacer" aria-label="Rehacer">↪️</button>
-      <button id="btn-daily" class="primary">🗓️ Caso del día</button>
-      <button id="btn-exit-daily">← Mis mapas</button>
-      <button id="btn-maps">📚 Mapas</button>
+      <button id="btn-maps" class="editor-only">📚 Mapas</button>
     </div>
   </header>
 
   <main>
     <aside id="panel">
-      <nav id="stepper">
+      <p class="mode-intro editor-only">✏️ <strong>Editor de mapas.</strong> Dibuja el plano de un caso de tu libro de puzles y resuélvelo aquí, sin escribir en el libro.</p>
+      <nav id="stepper" class="editor-only">
         <button class="step-btn" data-step="1"><span class="num">1</span> Tamaño</button>
         <button class="step-btn" data-step="2"><span class="num">2</span> Habitaciones</button>
         <button class="step-btn" data-step="3"><span class="num">3</span> Muebles</button>
@@ -112,7 +115,7 @@
             <strong id="daily-title">🗓️ Caso del día</strong>
             <span id="daily-checks" class="daily-checks"></span>
           </div>
-          <p class="hint">Coloca a cada persona donde estaba. El asesino es quien estaba a solas con la víctima. El mismo caso para todo el mundo hoy.</p>
+          <p class="hint">Un caso nuevo cada día, el mismo para todo el mundo. Coloca a cada persona donde estaba: el asesino es quien se quedó a solas con la víctima.</p>
           <ol id="clue-list" class="clue-list"></ol>
           <div class="tool-row">
             <button id="btn-check">✅ Comprobar</button>
@@ -131,9 +134,10 @@
           <button id="btn-clear-candidates" class="danger">✏️🧹 Limpiar «quizás»</button>
           <button id="btn-restart" class="danger">🔁 Volver a jugar</button>
         </div>
+        <p class="hint editor-cta daily-only">¿Tienes libros de puzles con planos? Dibújalos y resuélvelos en el <a href="#editor">✏️ Editor de mapas</a>.</p>
       </section>
 
-      <div class="nav-row">
+      <div class="nav-row editor-only">
         <button id="btn-prev">← Anterior</button>
         <button id="btn-next" class="primary">Siguiente →</button>
       </div>
@@ -156,8 +160,8 @@
   </main>
 
   <footer>
-    Crimle es un juego independiente hecho por un aficionado. El editor de mapas sirve para acompañar libros de puzles como Murdle,
-    con cuyo autor y editorial no tiene relación; los casos del día son propios y no incluye ninguno de los libros.
+    Crimle es un juego independiente hecho por un aficionado: un caso nuevo cada día, propio y generado al vuelo.
+    El editor de mapas sirve para acompañar libros de puzles como Murdle, con cuyo autor y editorial no tiene relación; no incluye ningún caso de los libros.
     · <a href="https://github.com/tribet84/Murdoku-map-renderer">Código en GitHub</a>
   </footer>
 

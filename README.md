@@ -1,29 +1,45 @@
 # 🔎 Crimle · Un asesinato al día
 
-**👉 Úsala aquí: https://tribet84.github.io/Murdoku-map-renderer/**
+**👉 Juega aquí: https://tribet84.github.io/Murdoku-map-renderer/**
 
 **Crimle** es un juego de deducción diario: cada día hay un nuevo caso, el mismo para todo el
 mundo, en el que hay que averiguar en qué casilla del plano estaba cada persona y quién se
 quedó a solas con la víctima. Al estilo de Wordle: se resuelve en unos minutos, se comparte el
-resultado con una cuadrícula de emojis y se lleva la racha.
+resultado con una cuadrícula de emojis y se lleva la racha. La app abre directamente en el caso
+del día.
 
-Además trae un **editor de mapas** para resolver los puzles de tipo «Murdoku» de los libros de
-Murdle sin escribir en el libro: dibujas el plano en un minuto, colocas a los personajes y la
-app tacha filas, columnas y muebles por ti. Todo **100% estático**, gratis, sin cuenta, y una
-vez cargada funciona sin conexión.
+En una segunda sección, el **✏️ Editor de mapas**, puedes resolver los puzles de plano de los
+libros de Murdle (los «Murdoku») sin escribir en el libro: dibujas el plano en un minuto,
+colocas a los personajes y la app tacha filas, columnas y muebles por ti. Todo **100% estático**,
+gratis, sin cuenta, y una vez cargada funciona sin conexión.
 
-> Crimle es un proyecto independiente hecho por un aficionado. El editor de mapas es compatible
-> con los libros de Murdle, con cuyo autor y editorial no tiene relación. Los casos del día se
-> generan al vuelo y son propios; no incluye ningún caso de los libros.
+> Crimle es un proyecto independiente hecho por un aficionado. Los casos del día se generan al
+> vuelo y son propios. El editor de mapas es compatible con los libros de Murdle, con cuyo autor
+> y editorial no tiene relación; no incluye ningún caso de los libros.
 
 *English: Crimle is a daily deduction game, Wordle-style: one new case a day, same for
 everyone, in which you work out which cell of the floor plan each person was in and who was
-alone with the victim. It also ships an editor to solve the "Murdoku" puzzles from the Murdle
-books without writing in them. Free, no account, works offline. Spanish UI.*
+alone with the victim. A second section, the map editor, lets you solve the floor-plan puzzles
+from the Murdle books without writing in them. Free, no account, works offline. Spanish UI.*
 
-## Cómo funciona
+## 🗓️ Caso del día (portada)
 
-Un asistente en 4 pasos:
+Al abrir Crimle aparece el caso de hoy, el mismo para todo el mundo, sin servidor: el plano,
+los muebles, la solución y las pistas se generan a partir de la fecha. Cada sospechoso tiene
+una o dos pistas al estilo del libro («estaba junto a una planta», «estaba en la misma
+habitación que D», «estaba delante de una ventana»…), la víctima siempre «estaba a solas con
+el asesino», y un resolutor garantiza que el caso tiene una única solución antes de dárselo a
+nadie.
+
+Se resuelve colocando a cada persona en su casilla. **Comprobar** te dice cuántas están bien
+sin decir cuáles. Al acertar todas salta el confeti, se muestra quién es el asesino y puedes
+**compartir** el resultado con tu tiempo, tu racha y una cuadrícula de emojis, como en Wordle.
+El enlace `…/#dia` lleva al caso del día (es también la portada); `…/#editor` abre el editor.
+Los casos, personajes y pistas son propios y se generan al vuelo: no salen del libro.
+
+## ✏️ Editor de mapas
+
+La pestaña **Editor de mapas** de la cabecera abre un asistente en 4 pasos:
 
 1. **Tamaño** — elige filas y columnas por separado (el mapa no tiene por qué ser
    cuadrado). Los personajes se crean solos: una letra (A, B, C…) por cada lado más
@@ -60,27 +76,12 @@ nuevo descarta lo que hubiera para rehacer.
 **🔁 Volver a jugar**, en el paso Resolver, deja el mapa intacto y pone la partida a cero
 en un toque: quita letras, «quizás», tachaduras y respuesta, y el cronómetro vuelve a 00:00.
 
-## 🗓️ Caso del día
-
-El botón **Caso del día** abre un caso nuevo cada día, el mismo para todo el mundo, sin
-servidor: el plano, los muebles, la solución y las pistas se generan a partir de la fecha.
-Cada sospechoso tiene una o dos pistas al estilo del libro («estaba junto a una planta»,
-«estaba en la misma habitación que D», «estaba delante de una ventana»…), la víctima
-siempre «estaba a solas con el asesino», y un resolutor garantiza que el caso tiene una
-única solución antes de dárselo a nadie.
-
-Se resuelve colocando a cada persona en su casilla. **Comprobar** te dice cuántas están bien
-sin decir cuáles. Al acertar todas salta el confeti, se muestra quién es el asesino y puedes
-**compartir** el resultado con tu tiempo, tu racha y una cuadrícula de emojis, como en Wordle.
-El enlace `…/#dia` lleva directamente al caso del día. Los casos, personajes y pistas son
-propios y se generan al vuelo: no salen del libro.
-
-Los obstáculos de tus propios mapas también pueden llevar tipo (**planta**, **mesa**,
+Los obstáculos de tus mapas también pueden llevar tipo (**planta**, **mesa**,
 **estantería**) desde el paso Muebles, para que el plano se lea como el del libro.
 
 ## Varios mapas
 
-**📚 Mapas** abre tu biblioteca: un mapa por cada caso del libro, con nombre. Desde ahí
+En el editor, **📚 Mapas** abre tu biblioteca: un mapa por cada caso del libro, con nombre. Desde ahí
 puedes crear uno nuevo, abrir otro, duplicarlo, renombrarlo o borrarlo. La cabecera muestra
 siempre qué mapa tienes abierto. Todo se guarda solo en el navegador (`localStorage`);
 la primera vez viene una casa de ejemplo inventada (Biblioteca, Sala de música, Invernadero,
