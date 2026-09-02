@@ -90,6 +90,12 @@ header h1 {
 .editor-cta a { color: var(--accent); font-weight: 700; }
 body.daily .editor-only, body:not(.daily) .daily-only { display: none !important; }
 body.daily #answer { display: none; }
+/* Mientras se genera el caso de hoy no se enseña el tablero del editor */
+body.daily-loading #board-wrap, body.daily-loading #step-4 > :not(#daily-card) { visibility: hidden; }
+body.daily-loading .step-panel:not(#step-4) { display: none; }
+body.daily-loading #step-4[hidden] { display: flex; }
+body.daily-loading #daily-title { animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.45; } }
 .daily-card {
   border: 2px solid var(--ink);
   border-radius: 12px;

@@ -24,12 +24,19 @@ from the Murdle books without writing in them. Free, no account, works offline. 
 
 ## 🗓️ Caso del día (portada)
 
-Al abrir Crimle aparece el caso de hoy, el mismo para todo el mundo, sin servidor: el plano,
-los muebles, la solución y las pistas se generan a partir de la fecha. Cada sospechoso tiene
-una o dos pistas al estilo del libro («estaba junto a una planta», «estaba en la misma
-habitación que D», «estaba delante de una ventana»…), la víctima siempre «estaba a solas con
-el asesino», y un resolutor garantiza que el caso tiene una única solución antes de dárselo a
-nadie.
+Al abrir Crimle aparece el caso de hoy, el mismo para todo el mundo, sin servidor: el plano
+(7×7, seis sospechosos y la víctima), los muebles, la solución y las pistas se generan a partir
+de la fecha. Cada sospechoso tiene una o dos pistas al estilo del libro («estaba junto a una
+planta», «estaba en la misma habitación que D», «estaba delante de una ventana»…), la víctima
+siempre «estaba a solas con el asesino», y un resolutor garantiza que el caso tiene una única
+solución antes de dárselo a nadie.
+
+Las pistas se eligen para que haya que cruzarlas: se prefieren las que relacionan a dos
+personas o describen la casilla antes que «estaba en la biblioteca», y de las redundantes se
+quitan primero las directas. Cada día se generan varios casos válidos y se publica el más
+difícil según un resolutor por propagación (cuántas personas se pueden fijar sin ramificar,
+como haría alguien con lápiz). La primera vez que se abre el día se ve «Preparando el caso de
+hoy…» durante unos segundos mientras se genera.
 
 Se resuelve colocando a cada persona en su casilla. **Comprobar** te dice cuántas están bien
 sin decir cuáles. Al acertar todas salta el confeti, se muestra quién es el asesino y puedes

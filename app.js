@@ -440,7 +440,24 @@ function saveDaily() {
   if (daily) saveJSON(DAILY_KEY, daily);
 }
 
-function enterDaily() {
+let dailyLoading = false; // generando el caso de hoy (tarda unos segundos en móvil)
+
+function dailyCached() {
+  const saved = loadJSON(DAILY_KEY, null);
+  return Boolean(saved && window.CrimleDaily && saved.date === window.CrimleDaily.dateKey());
+}
+
+function enterDaily(generateNow = false) {
+  if (!generateNow && !dailyCached()) {
+    // Primera apertura del día: se avisa antes de generar, que bloquea unos segundos.
+    dailyLoading = true;
+    renderDaily();
+    setTimeout(() => {
+      dailyLoading = false;
+      if (location.hash !== '#editor') enterDaily(true); else renderDaily();
+    }, 30);
+    return;
+  }
   const d = loadDaily();
   if (!d) {
     // Sin generador no hay caso: se queda en el editor, que funciona igual.
@@ -578,10 +595,19 @@ function showDailyResult(stats) {
 }
 
 function renderDaily() {
-  document.body.classList.toggle('daily', dailyMode);
+  document.body.classList.toggle('daily', dailyMode || dailyLoading);
+  document.body.classList.toggle('daily-loading', dailyLoading);
   const card = $('#daily-card');
   if (!card) return;
-  card.hidden = !dailyMode;
+  card.hidden = !(dailyMode || dailyLoading);
+  if (dailyLoading) {
+    $('#daily-title').textContent = '🔎 Preparando el caso de hoy…';
+    $('#daily-checks').textContent = '';
+    $('#clue-list').innerHTML = '';
+    $('#daily-feedback').hidden = true;
+    $('#btn-share').hidden = true;
+    return;
+  }
   if (!dailyMode) return;
   if (!dailyFeedbackFresh) $('#daily-feedback').hidden = true;
   dailyFeedbackFresh = false;
