@@ -34,12 +34,26 @@ Un asistente en 4 pasos:
 El mapa lleva numeradas las filas y columnas (1, 2, 3…) en los bordes, para poder
 describir una casilla en voz alta sin ambigüedad.
 
-El botón **↩️ Deshacer** de la cabecera funciona en cualquier paso y revierte el último
-cambio: colocar o quitar una letra, un trazo entero de pintar habitación o mueble, tachar
-una casilla, añadir/renombrar/borrar una habitación, cambiar filas o columnas, etc.
+Los botones **↩️ Deshacer** y **↪️ Rehacer** de la cabecera funcionan en cualquier paso:
+colocar o quitar una letra, un trazo entero de pintar habitación o mueble, tachar una
+casilla, añadir/renombrar/borrar una habitación, cambiar filas o columnas, etc. Un cambio
+nuevo descarta lo que hubiera para rehacer.
 
-Todo se guarda solo en el navegador (`localStorage`). Viene precargado el mapa de ejemplo
-del libro (Baño, Cocina, Cuarto de invitados, Comedor, Dormitorio y Salón).
+**🔁 Volver a jugar**, en el paso Resolver, deja el mapa intacto y pone la partida a cero
+en un toque: quita letras, «quizás», tachaduras y respuesta, y el cronómetro vuelve a 00:00.
+
+## Varios mapas
+
+**📚 Mapas** abre tu biblioteca: un mapa por cada caso del libro, con nombre. Desde ahí
+puedes crear uno nuevo, abrir otro, duplicarlo, renombrarlo o borrarlo. La cabecera muestra
+siempre qué mapa tienes abierto. Todo se guarda solo en el navegador (`localStorage`);
+la primera vez viene el mapa de ejemplo del libro (Baño, Cocina, Cuarto de invitados,
+Comedor, Dormitorio y Salón).
+
+## Instalar en el móvil
+
+Es una PWA: en el navegador del móvil, «Añadir a la pantalla de inicio» la instala con su
+icono y se abre a pantalla completa. Una vez cargada, funciona también sin conexión.
 
 ## Cómo usarla en local
 

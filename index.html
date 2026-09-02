@@ -6,13 +6,24 @@
   <title>Murdoku · Mapa digital</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔎</text></svg>">
   <link rel="stylesheet" href="style.css">
+  <!-- PWA: instalable en el móvil y usable sin conexión -->
+  <meta name="theme-color" content="#f7d3d6">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Murdoku">
 </head>
 <body>
   <header>
-    <h1>🔎 Murdoku</h1>
+    <div class="brand">
+      <h1>🔎 Murdoku</h1>
+      <span id="map-name" class="map-name"></span>
+    </div>
     <div class="header-actions">
-      <button id="btn-undo" disabled>↩️ Deshacer</button>
-      <button id="btn-new">✨ Nuevo mapa</button>
+      <button id="btn-undo" class="icon-btn" disabled title="Deshacer" aria-label="Deshacer">↩️</button>
+      <button id="btn-redo" class="icon-btn" disabled title="Rehacer" aria-label="Rehacer">↪️</button>
+      <button id="btn-maps">📚 Mapas</button>
     </div>
   </header>
 
@@ -81,8 +92,8 @@
         </div>
         <div id="play-status" class="status"></div>
         <div class="tool-row">
-          <button id="btn-clear-plays" class="danger">🧹 Limpiar colocaciones</button>
           <button id="btn-clear-candidates" class="danger">✏️🧹 Limpiar «quizás»</button>
+          <button id="btn-restart" class="danger">🔁 Volver a jugar</button>
         </div>
       </section>
 
@@ -127,6 +138,18 @@
         <button value="ok">Aceptar</button>
       </menu>
     </form>
+  </dialog>
+
+  <dialog id="dlg-maps">
+    <div class="dlg-head">
+      <h2>📚 Mis mapas</h2>
+      <button type="button" id="dlg-maps-close" class="icon-btn" aria-label="Cerrar">✕</button>
+    </div>
+    <p class="hint">Un mapa por cada caso del libro. Todo se guarda solo en este navegador.</p>
+    <ul id="maps-list"></ul>
+    <menu>
+      <button type="button" id="btn-new" class="primary">✨ Nuevo mapa</button>
+    </menu>
   </dialog>
 
   <script src="app.js"></script>

@@ -5,7 +5,8 @@
  * Asistente en 4 pasos: tamaño → habitaciones → muebles → resolver.
  * ============================================================ */
 
-const STORAGE_KEY = 'murdoku-state-v3';
+const STORAGE_KEY = 'murdoku-state-v3';   // formato antiguo: un solo mapa (se migra al arrancar)
+const LIBRARY_KEY = 'murdoku-library-v4'; // formato actual: varios mapas con nombre
 const MIN_SIZE = 3;
 const MAX_SIZE = 15;
 
@@ -140,47 +141,6 @@ function blankState() {
 /* ------------------------------------------------------------
  * Estado y persistencia
  * ------------------------------------------------------------ */
-let state = loadState();
-let selectedChar = null;
-let xToolActive = false;
-let candidateToolActive = false;
-let selectedRoomId = state.rooms[0] ? state.rooms[0].id : null;
-let furnTool = 'obstaculo';
-let painting = false;
-
-/* ------------------------------------------------------------
- * Deshacer: pila de instantáneas tomadas justo antes de cada cambio real.
- * ------------------------------------------------------------ */
-const UNDO_LIMIT = 50;
-const undoStack = [];
-let strokeUndoPushed = false; // evita apilar una vez por casilla al pintar arrastrando
-
-function updateUndoButton() {
-  const btn = $('#btn-undo');
-  if (btn) btn.disabled = undoStack.length === 0;
-}
-
-function pushUndo() {
-  undoStack.push(JSON.stringify(state));
-  if (undoStack.length > UNDO_LIMIT) undoStack.shift();
-  updateUndoButton();
-}
-
-/** Como pushUndo(), pero como mucho una vez por trazo de arrastre (pointerdown→pointerup). */
-function pushUndoOnce() {
-  if (strokeUndoPushed) return;
-  pushUndo();
-  strokeUndoPushed = true;
-}
-
-function undo() {
-  if (!undoStack.length) return;
-  state = JSON.parse(undoStack.pop());
-  saveState();
-  renderAll();
-  updateUndoButton();
-}
-
 /**
  * Antes las alfombras vivían en `furniture` (una sola cosa por casilla). Ahora son
  * una capa aparte, para poder poner un obstáculo o una planta encima de una alfombra.
@@ -195,23 +155,179 @@ function migrateState(s) {
   return s;
 }
 
-function loadState() {
+function isValidState(s) {
+  return s && typeof s.rows === 'number' && typeof s.cols === 'number' && Array.isArray(s.rooms);
+}
+
+/* ------------------------------------------------------------
+ * Biblioteca de mapas: { currentId, maps: [{ id, name, updatedAt, state }] }
+ * Cada caso del libro puede tener su propio mapa.
+ * ------------------------------------------------------------ */
+function newId() {
+  return 'map' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+function makeMapEntry(name, st) {
+  return { id: newId(), name, updatedAt: Date.now(), state: st };
+}
+
+function loadLibrary() {
+  try {
+    const raw = localStorage.getItem(LIBRARY_KEY);
+    if (raw) {
+      const lib = JSON.parse(raw);
+      if (lib && Array.isArray(lib.maps) && lib.maps.length) {
+        lib.maps = lib.maps.filter((m) => m && isValidState(m.state));
+        for (const m of lib.maps) m.state = migrateState({ ...blankState(), ...m.state });
+        if (lib.maps.length) {
+          if (!lib.maps.some((m) => m.id === lib.currentId)) lib.currentId = lib.maps[0].id;
+          return lib;
+        }
+      }
+    }
+  } catch (e) { /* biblioteca corrupta o almacenamiento no disponible */ }
+
+  // Migración desde el formato antiguo de un solo mapa.
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const s = JSON.parse(raw);
-      if (s && typeof s.rows === 'number' && typeof s.cols === 'number' && Array.isArray(s.rooms)) {
-        return migrateState({ ...blankState(), ...s });
+      if (isValidState(s)) {
+        const entry = makeMapEntry('Mi mapa', migrateState({ ...blankState(), ...s }));
+        return { currentId: entry.id, maps: [entry] };
       }
     }
-  } catch (e) { /* estado corrupto o almacenamiento no disponible */ }
-  return exampleState();
+  } catch (e) { /* se ignora */ }
+
+  const entry = makeMapEntry('Ejemplo del libro', exampleState());
+  return { currentId: entry.id, maps: [entry] };
 }
 
-function saveState() {
+function currentMap() {
+  return library.maps.find((m) => m.id === library.currentId) || library.maps[0];
+}
+
+function saveLibrary() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    localStorage.setItem(LIBRARY_KEY, JSON.stringify(library));
   } catch (e) { /* sin persistencia */ }
+}
+
+/** Guarda el mapa abierto dentro de la biblioteca. */
+function saveState() {
+  const m = currentMap();
+  m.state = state;
+  m.updatedAt = Date.now();
+  saveLibrary();
+}
+
+let library = loadLibrary();
+let state = currentMap().state;
+let selectedChar = null;
+let xToolActive = false;
+let candidateToolActive = false;
+let selectedRoomId = state.rooms[0] ? state.rooms[0].id : null;
+let furnTool = 'obstaculo';
+let painting = false;
+
+/* ------------------------------------------------------------
+ * Deshacer / rehacer: pilas de instantáneas del mapa abierto.
+ * ------------------------------------------------------------ */
+const UNDO_LIMIT = 50;
+const undoStack = [];
+const redoStack = [];
+let strokeUndoPushed = false; // evita apilar una vez por casilla al pintar arrastrando
+
+function updateUndoButton() {
+  const u = $('#btn-undo');
+  if (u) u.disabled = undoStack.length === 0;
+  const r = $('#btn-redo');
+  if (r) r.disabled = redoStack.length === 0;
+}
+
+/** Instantánea justo antes de un cambio real. Un cambio nuevo invalida lo que había para rehacer. */
+function pushUndo() {
+  undoStack.push(JSON.stringify(state));
+  if (undoStack.length > UNDO_LIMIT) undoStack.shift();
+  redoStack.length = 0;
+  updateUndoButton();
+}
+
+/** Como pushUndo(), pero como mucho una vez por trazo de arrastre (pointerdown→pointerup). */
+function pushUndoOnce() {
+  if (strokeUndoPushed) return;
+  pushUndo();
+  strokeUndoPushed = true;
+}
+
+function undo() {
+  if (!undoStack.length) return;
+  redoStack.push(JSON.stringify(state));
+  state = JSON.parse(undoStack.pop());
+  saveState();
+  renderAll();
+  updateUndoButton();
+}
+
+function redo() {
+  if (!redoStack.length) return;
+  undoStack.push(JSON.stringify(state));
+  state = JSON.parse(redoStack.pop());
+  saveState();
+  renderAll();
+  updateUndoButton();
+}
+
+/** Al cambiar de mapa, el historial del anterior deja de tener sentido. */
+function clearHistory() {
+  undoStack.length = 0;
+  redoStack.length = 0;
+  updateUndoButton();
+}
+
+/* ------------------------------------------------------------
+ * Gestión de mapas
+ * ------------------------------------------------------------ */
+function openMap(id) {
+  if (!library.maps.some((m) => m.id === id)) return;
+  library.currentId = id;
+  state = currentMap().state;
+  selectedChar = null;
+  xToolActive = false;
+  candidateToolActive = false;
+  selectedRoomId = state.rooms[0] ? state.rooms[0].id : null;
+  furnTool = 'obstaculo';
+  wasSolved = computeSolved(); // abrir un mapa ya resuelto no lanza confeti
+  clearHistory();
+  saveLibrary();
+  renderAll();
+}
+
+function createMap(name, st) {
+  const entry = makeMapEntry(name, st);
+  library.maps.unshift(entry);
+  saveLibrary();
+  openMap(entry.id);
+  return entry;
+}
+
+function nextMapName() {
+  const n = library.maps.length + 1;
+  let name = `Mapa ${n}`;
+  let i = n;
+  while (library.maps.some((m) => m.name === name)) name = `Mapa ${++i}`;
+  return name;
+}
+
+function relativeTime(ts) {
+  const mins = Math.round((Date.now() - ts) / 60000);
+  if (mins < 1) return 'ahora mismo';
+  if (mins < 60) return `hace ${mins} min`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `hace ${hours} h`;
+  const days = Math.round(hours / 24);
+  if (days < 30) return `hace ${days} d`;
+  return new Date(ts).toLocaleDateString('es-ES');
 }
 
 /* ------------------------------------------------------------
@@ -736,12 +852,19 @@ function updateTimerRunState() {
   renderTimer();
 }
 
+/** Todos los personajes colocados y sin conflictos. */
+function computeSolved() {
+  const letters = charactersFor(charCount());
+  const placed = Object.values(state.placements).filter((v) => letters.includes(v)).length;
+  return computeConflicts().size === 0 && placed === letters.length && letters.length > 0;
+}
+
 function renderPlayStatus() {
   const el = $('#play-status');
   const letters = charactersFor(charCount());
   const placed = Object.values(state.placements).filter((v) => letters.includes(v)).length;
   const conflicts = computeConflicts();
-  const solved = conflicts.size === 0 && placed === letters.length && letters.length > 0;
+  const solved = computeSolved();
   if (conflicts.size > 0) {
     el.className = 'status bad';
     el.textContent = `⚠️ Hay ${conflicts.size} casillas en conflicto (misma fila/columna o sobre un obstáculo).`;
@@ -809,7 +932,78 @@ function launchConfetti() {
   requestAnimationFrame(frame);
 }
 
+function renderMapName() {
+  const el = $('#map-name');
+  if (el) el.textContent = currentMap().name;
+}
+
+function renderMapsList() {
+  const ul = $('#maps-list');
+  ul.innerHTML = '';
+  const maps = [...library.maps].sort((a, b) => b.updatedAt - a.updatedAt);
+  for (const m of maps) {
+    const isCurrent = m.id === library.currentId;
+    const li = document.createElement('li');
+    li.className = 'map-row' + (isCurrent ? ' current' : '');
+
+    const info = document.createElement('button');
+    info.type = 'button';
+    info.className = 'map-info';
+    info.title = isCurrent ? 'Mapa abierto' : 'Abrir este mapa';
+    const name = document.createElement('strong');
+    name.textContent = m.name;
+    const meta = document.createElement('small');
+    const st = m.state;
+    const total = charactersFor(Math.min(st.rows, st.cols)).length;
+    const placed = Object.keys(st.placements || {}).length;
+    meta.textContent = `${st.rows}×${st.cols} · ${st.rooms.length} hab. · ${placed}/${total} colocados · ${relativeTime(m.updatedAt)}`;
+    info.append(name, meta);
+    if (isCurrent) {
+      const badge = document.createElement('span');
+      badge.className = 'map-badge';
+      badge.textContent = 'Abierto';
+      info.appendChild(badge);
+    } else {
+      info.addEventListener('click', () => { openMap(m.id); $('#dlg-maps').close(); });
+    }
+
+    const actions = document.createElement('div');
+    actions.className = 'map-actions';
+    const mk = (label, title, handler, cls = '') => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'icon-btn small ' + cls;
+      b.textContent = label;
+      b.title = title;
+      b.setAttribute('aria-label', title);
+      b.addEventListener('click', handler);
+      return b;
+    };
+    actions.append(
+      mk('⧉', 'Duplicar', () => {
+        createMap(`Copia de ${m.name}`, JSON.parse(JSON.stringify(m.state)));
+        $('#dlg-maps').close();
+      }),
+      mk('✎', 'Renombrar', async () => {
+        const n = await askText('Nombre del mapa:', m.name);
+        if (n && n.trim()) { m.name = n.trim(); saveLibrary(); renderMapName(); renderMapsList(); }
+      }),
+      mk('🗑', 'Borrar', async () => {
+        if (!(await askConfirm(`¿Borrar el mapa «${m.name}»? Esto no se puede deshacer.`))) return;
+        library.maps = library.maps.filter((x) => x.id !== m.id);
+        if (!library.maps.length) library.maps.push(makeMapEntry(nextMapName(), blankState()));
+        if (library.currentId === m.id) openMap(library.maps[0].id); else saveLibrary();
+        renderMapsList();
+      }, 'danger'),
+    );
+
+    li.append(info, actions);
+    ul.appendChild(li);
+  }
+}
+
 function renderAll() {
+  renderMapName();
   renderStepper();
   renderSizeStep();
   renderRoomList();
@@ -1083,13 +1277,16 @@ function setupControls() {
     renderCharChips();
   });
 
-  $('#btn-clear-plays').addEventListener('click', async () => {
-    if (!(await askConfirm('¿Quitar todos los personajes y tachaduras manuales?'))) return;
+  $('#btn-restart').addEventListener('click', async () => {
+    if (!(await askConfirm('¿Volver a jugar este mapa desde cero? Se quitan las letras, los «quizás», las tachaduras y el cronómetro vuelve a 00:00. El mapa se conserva.'))) return;
     pushUndo();
     state.placements = {};
+    state.candidates = {};
     state.manualX = [];
+    state.answer = '';
+    state.timerSeconds = 0;
     saveState();
-    renderCharChips(); renderPlayStatus(); renderBoard();
+    renderAll();
   });
 
   $('#btn-clear-candidates').addEventListener('click', async () => {
@@ -1101,19 +1298,20 @@ function setupControls() {
   });
 
   $('#btn-new').addEventListener('click', async () => {
-    if (!(await askConfirm('¿Empezar un mapa nuevo desde cero? Se borrará el actual.'))) return;
-    pushUndo();
-    state = blankState();
-    selectedChar = null;
-    xToolActive = false;
-    candidateToolActive = false;
-    selectedRoomId = null;
-    furnTool = 'obstaculo';
-    saveState();
-    renderAll();
+    const name = await askText('Nombre del mapa nuevo:', nextMapName());
+    if (name === null) return;
+    createMap(name.trim() || nextMapName(), blankState());
+    $('#dlg-maps').close();
   });
 
+  $('#btn-maps').addEventListener('click', () => {
+    renderMapsList();
+    $('#dlg-maps').showModal();
+  });
+  $('#dlg-maps-close').addEventListener('click', () => $('#dlg-maps').close());
+
   $('#btn-undo').addEventListener('click', undo);
+  $('#btn-redo').addEventListener('click', redo);
 
   $('#answer-input').addEventListener('input', (ev) => {
     state.answer = ev.target.value;
@@ -1128,4 +1326,10 @@ setupControls();
 setupBoardEvents();
 renderAll();
 updateUndoButton();
-saveState(); // normaliza en disco lo que venga de una versión anterior (ver migrateState)
+saveState(); // normaliza en disco lo que venga de una versión anterior (ver migrateState / loadLibrary)
+try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* ya migrado */ }
+
+// PWA: instalable y disponible sin conexión. Solo tiene sentido servida por http(s).
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+  navigator.serviceWorker.register('./sw.js').catch(() => { /* sin SW, la app funciona igual */ });
+}
