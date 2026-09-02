@@ -1,7 +1,18 @@
 # 🔎 Murdoku · Mapa digital
 
+**👉 Úsala aquí: https://tribet84.github.io/Murdoku-map-renderer/**
+
 Aplicación web **100% estática** para resolver los puzles *Murdoku* (los sudokus de asesinatos
-de los libros de Murdle) sin escribir en el libro.
+de los libros de Murdle) sin escribir en el libro. Dibujas el plano en un minuto, colocas a
+los personajes y la app tacha filas, columnas y muebles por ti. Gratis, sin cuenta, y una vez
+cargada funciona sin conexión.
+
+> Herramienta no oficial hecha por un aficionado. No tiene relación con el autor ni con la
+> editorial de Murdle, y no incluye ningún caso de los libros: el mapa de ejemplo es inventado.
+
+*English: an unofficial companion web app for solving Murdle's "Murdoku" puzzles without
+writing in the book. Draw the floor plan, place the suspects, and the app crosses out rows,
+columns and furniture for you. Free, no account, works offline. Spanish UI.*
 
 ## Cómo funciona
 

@@ -51,56 +51,65 @@ function charColor(letter, index) {
 }
 
 /* ------------------------------------------------------------
- * Puzle de ejemplo: el mapa de la foto del libro (9×9).
+ * Mapa de ejemplo: una casa inventada (9×9) que enseña todos los
+ * elementos de la app: habitaciones, obstáculos, butacas, camas,
+ * alfombras y ventanas. No reproduce ningún caso del libro.
  * ------------------------------------------------------------ */
 function exampleState() {
   const rooms = [
-    { id: 'bano',       name: 'Baño',                color: '#8ec9e8' },
-    { id: 'cocina',     name: 'Cocina',              color: '#c5aee8' },
-    { id: 'invitados',  name: 'Cuarto de invitados', color: '#f5a8c0' },
-    { id: 'comedor',    name: 'Comedor',             color: '#ffcc80' },
-    { id: 'dormitorio', name: 'Dormitorio',          color: '#a5d6a7' },
-    { id: 'salon',      name: 'Salón',               color: '#fff59d' },
+    { id: 'biblioteca',  name: 'Biblioteca',      color: '#c5aee8' },
+    { id: 'musica',      name: 'Sala de música',  color: '#fff59d' },
+    { id: 'invernadero', name: 'Invernadero',     color: '#a5d6a7' },
+    { id: 'cocina',      name: 'Cocina',          color: '#8ec9e8' },
+    { id: 'dormitorio',  name: 'Dormitorio',      color: '#f5a8c0' },
+    { id: 'recibidor',   name: 'Recibidor',       color: '#ffcc80' },
   ];
 
   const cellRoom = {};
   const assign = (roomId, r1, r2, c1, c2) => {
     for (let r = r1; r <= r2; r++) for (let c = c1; c <= c2; c++) cellRoom[key(r, c)] = roomId;
   };
-  assign('bano', 0, 3, 0, 1);
-  assign('cocina', 0, 3, 2, 4);
-  assign('invitados', 0, 2, 5, 8);
-  assign('comedor', 3, 3, 5, 8);
-  assign('comedor', 4, 5, 4, 8);
-  assign('dormitorio', 4, 8, 0, 3);
-  assign('salon', 6, 8, 4, 8);
+  assign('biblioteca', 0, 3, 0, 3);
+  assign('musica', 0, 2, 4, 8);
+  assign('invernadero', 3, 5, 4, 8);
+  assign('cocina', 4, 6, 0, 3);
+  assign('dormitorio', 6, 8, 4, 8);
+  assign('recibidor', 7, 8, 0, 3);
 
   const furniture = {};
   const put = (type, ...cells) => cells.forEach(([r, c]) => { furniture[key(r, c)] = type; });
-  // Baño
-  put('obstaculo', [0, 1], [2, 0]);
-  put('silla', [3, 0]);
-  // Cocina
-  put('obstaculo', [0, 2], [1, 2], [1, 4], [2, 4], [3, 4], [3, 3]);
-  // Cuarto de invitados
-  put('obstaculo', [0, 5], [2, 5], [2, 7]);
-  put('cama', [0, 6], [1, 6], [0, 7], [1, 7]);
-  // Comedor
-  put('silla', [3, 5], [4, 4], [5, 5], [5, 8]);
-  put('obstaculo', [3, 8], [4, 5], [4, 6], [4, 7], [4, 8]);
-  // Dormitorio
-  put('cama', [5, 1], [6, 1], [5, 2], [6, 2]);
-  put('obstaculo', [7, 0], [7, 3], [8, 1], [8, 3]);
-  // Salón
-  put('obstaculo', [6, 4], [6, 5], [6, 6], [7, 4]);
-  put('silla', [7, 8], [8, 5], [8, 6], [8, 8]);
+  // Biblioteca: estanterías arriba, dos butacas y una mesita sobre la alfombra, una planta
+  put('obstaculo', [0, 0], [0, 1], [0, 2], [2, 2], [3, 0]);
+  put('silla', [2, 1], [2, 3]);
+  // Sala de música: piano, arpa y dos butacas
+  put('obstaculo', [0, 4], [0, 7], [0, 8]);
+  put('silla', [1, 5], [2, 6]);
+  // Invernadero: plantas en las esquinas y una butaca en el centro
+  put('obstaculo', [3, 4], [3, 8], [5, 4], [5, 8]);
+  put('silla', [4, 6]);
+  // Cocina: encimera en L, mesa y dos sillas
+  put('obstaculo', [4, 0], [5, 0], [6, 0], [6, 1], [5, 2]);
+  put('silla', [4, 3], [6, 3]);
+  // Dormitorio: cama de dos casillas, mesita, estantería y una butaca
+  put('cama', [6, 5], [6, 6]);
+  put('obstaculo', [6, 7], [7, 8], [8, 8]);
+  put('silla', [8, 5]);
+  // Recibidor: perchero y mesita
+  put('obstaculo', [8, 0], [7, 3]);
+
+  const rugs = [
+    key(2, 1), key(2, 2), key(2, 3), key(3, 1), key(3, 2), key(3, 3), // biblioteca
+    key(1, 6), key(1, 7), key(2, 6), key(2, 7),                       // sala de música
+    key(7, 6), key(7, 7), key(8, 6), key(8, 7),                       // dormitorio
+  ];
 
   const windows = {
+    [key(2, 0)]: ['w'],
     [key(1, 8)]: ['e'],
     [key(4, 8)]: ['e'],
+    [key(4, 0)]: ['w'],
     [key(6, 8)]: ['e'],
-    [key(5, 0)]: ['w'],
-    [key(8, 0)]: ['w'],
+    [key(8, 2)]: ['s'],
   };
 
   return {
@@ -110,7 +119,7 @@ function exampleState() {
     cellRoom,
     furniture,
     windows,          // "r,c" -> ["n"|"s"|"e"|"w", ...]
-    rugs: [],         // ["r,c", ...] capa aparte: una alfombra puede tener un mueble encima
+    rugs,             // ["r,c", ...] capa aparte: una alfombra puede tener un mueble encima
     placements: {},   // "r,c" -> letra (colocación confirmada, una por letra)
     candidates: {},   // letra -> ["r,c", ...] (casillas donde "quizá" esté, varias por letra)
     manualX: [],      // ["r,c", ...]

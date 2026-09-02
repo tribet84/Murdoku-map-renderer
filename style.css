@@ -689,6 +689,15 @@ dialog menu {
   padding: 0;
 }
 
+footer {
+  text-align: center;
+  font-size: 0.78rem;
+  color: #8a7078;
+  padding: 14px 18px 22px;
+  line-height: 1.5;
+}
+footer a { color: inherit; }
+
 @media (max-width: 780px) {
   main { flex-direction: column-reverse; align-items: stretch; }
   #panel { width: 100%; }
