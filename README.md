@@ -80,6 +80,11 @@ colocar o quitar una letra, un trazo entero de pintar habitación o mueble, tach
 casilla, añadir/renombrar/borrar una habitación, cambiar filas o columnas, etc. Un cambio
 nuevo descarta lo que hubiera para rehacer.
 
+Cada mapa y el caso del día llevan **su propio historial**: si te vas al caso del día en
+mitad de un plano (o abres otro mapa) y luego vuelves, «Deshacer» sigue donde lo dejaste y
+solo afecta a lo que estabas haciendo ahí. Los historiales viven en memoria, así que
+recargar la página los vacía.
+
 **🔁 Volver a jugar**, en el paso Resolver, deja el mapa intacto y pone la partida a cero
 en un toque: quita letras, «quizás», tachaduras y respuesta, y el cronómetro vuelve a 00:00.
 

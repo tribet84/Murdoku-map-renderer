@@ -288,25 +288,56 @@ let furnTool = 'obstaculo';
 let painting = false;
 
 /* ------------------------------------------------------------
- * Deshacer / rehacer: pilas de instantáneas del mapa abierto.
+ * Deshacer / rehacer: una pila de instantáneas POR CONTEXTO.
+ *
+ * Cada mapa del editor y el caso del día llevan su propio historial, así que
+ * cambiar de sección (o de mapa) no tira por la borda lo que estabas haciendo:
+ * al volver, «Deshacer» sigue donde lo dejaste. Los historiales viven en
+ * memoria; una recarga de la página los vacía.
  * ------------------------------------------------------------ */
 const UNDO_LIMIT = 50;
-const undoStack = [];
-const redoStack = [];
+const MAX_HISTORIES = 12; // contextos recordados a la vez (se olvida el menos usado)
+const histories = new Map(); // clave de contexto -> { undo: [], redo: [] }
 let strokeUndoPushed = false; // evita apilar una vez por casilla al pintar arrastrando
 
+/** Qué historial toca ahora mismo. El del día lleva la fecha: mañana empieza limpio. */
+function historyKey() {
+  if (dailyMode) return 'dia:' + (daily ? daily.date : 'pendiente');
+  return 'mapa:' + library.currentId;
+}
+
+function currentHistory() {
+  const k = historyKey();
+  let h = histories.get(k);
+  if (h) histories.delete(k); // reinsertar lo pone al final: el primero es el menos usado
+  else h = { undo: [], redo: [] };
+  histories.set(k, h);
+  for (const old of histories.keys()) {
+    if (histories.size <= MAX_HISTORIES) break;
+    histories.delete(old);
+  }
+  return h;
+}
+
+/** El historial de un mapa borrado ya no sirve para nada. */
+function forgetHistory(mapId) {
+  histories.delete('mapa:' + mapId);
+}
+
 function updateUndoButton() {
+  const h = currentHistory();
   const u = $('#btn-undo');
-  if (u) u.disabled = undoStack.length === 0;
+  if (u) u.disabled = h.undo.length === 0;
   const r = $('#btn-redo');
-  if (r) r.disabled = redoStack.length === 0;
+  if (r) r.disabled = h.redo.length === 0;
 }
 
 /** Instantánea justo antes de un cambio real. Un cambio nuevo invalida lo que había para rehacer. */
 function pushUndo() {
-  undoStack.push(JSON.stringify(state));
-  if (undoStack.length > UNDO_LIMIT) undoStack.shift();
-  redoStack.length = 0;
+  const h = currentHistory();
+  h.undo.push(JSON.stringify(state));
+  if (h.undo.length > UNDO_LIMIT) h.undo.shift();
+  h.redo.length = 0;
   updateUndoButton();
 }
 
@@ -318,27 +349,22 @@ function pushUndoOnce() {
 }
 
 function undo() {
-  if (!undoStack.length) return;
-  redoStack.push(JSON.stringify(state));
-  state = JSON.parse(undoStack.pop());
+  const h = currentHistory();
+  if (!h.undo.length) return;
+  h.redo.push(JSON.stringify(state));
+  state = JSON.parse(h.undo.pop());
   saveState();
   renderAll();
   updateUndoButton();
 }
 
 function redo() {
-  if (!redoStack.length) return;
-  undoStack.push(JSON.stringify(state));
-  state = JSON.parse(redoStack.pop());
+  const h = currentHistory();
+  if (!h.redo.length) return;
+  h.undo.push(JSON.stringify(state));
+  state = JSON.parse(h.redo.pop());
   saveState();
   renderAll();
-  updateUndoButton();
-}
-
-/** Al cambiar de mapa, el historial del anterior deja de tener sentido. */
-function clearHistory() {
-  undoStack.length = 0;
-  redoStack.length = 0;
   updateUndoButton();
 }
 
@@ -358,7 +384,7 @@ function openMap(id) {
   selectedRoomId = state.rooms[0] ? state.rooms[0].id : null;
   furnTool = 'obstaculo';
   wasSolved = computeSolved(); // abrir un mapa ya resuelto no lanza confeti
-  clearHistory();
+  updateUndoButton(); // el historial de este mapa sigue donde lo dejaste (ver currentHistory)
   saveLibrary();
   renderAll();
 }
@@ -475,7 +501,7 @@ function enterDaily(generateNow = false) {
   xToolActive = false;
   candidateToolActive = false;
   wasSolved = computeSolved(); // volver a un caso ya resuelto no relanza el confeti
-  clearHistory();
+  updateUndoButton(); // el caso del día tiene su propio historial, aparte del editor
   saveDaily();
   if (location.hash !== '#dia') history.replaceState(null, '', '#dia');
   renderAll();
@@ -1330,6 +1356,7 @@ function renderMapsList() {
       mk('🗑', 'Borrar', async () => {
         if (!(await askConfirm(`¿Borrar el mapa «${m.name}»? Esto no se puede deshacer.`))) return;
         library.maps = library.maps.filter((x) => x.id !== m.id);
+        forgetHistory(m.id);
         if (!library.maps.length) library.maps.push(makeMapEntry(nextMapName(), blankState()));
         if (library.currentId === m.id) openMap(library.maps[0].id); else saveLibrary();
         renderMapsList();
